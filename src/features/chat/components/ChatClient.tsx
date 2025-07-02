@@ -4,7 +4,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { AnimatePresence } from "framer-motion";
 import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react"; // useRefをインポート
+import { useRef, useState } from "react";
 import * as THREE from "three";
 import { useChat } from "../hooks/useChat";
 import { ControlBarFooter } from "./controllers/ControlBarFooter";
@@ -19,16 +19,32 @@ type Props = {
   session: Session;
 };
 
+/**
+ * AIチャット機能のすべてを統括するクライアントコンポーネント。
+ * useChatフックからロジックを受け取り、各UIコンポーネントに状態と関数を渡す「司令塔」の役割を担う。
+ */
 export function ChatClient({ session }: Props) {
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // ----------------------------------------------------------------
+  // State and Refs - このコンポーネントで管理するUIの状態
+  // ----------------------------------------------------------------
+
+  const [isUnlocked, setIsUnlocked] = useState(false); // 会話が開始されているか（ロック解除済みか）
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false); // 会話履歴オーバーレイが開いているか
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false); // 設定ダイアログが開いているか
   const [effects, setEffects] = useState<
     Array<{ id: number; position: THREE.Vector3 }>
-  >([]);
-  const interactionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  >([]); // タップエフェクトのリスト
 
-  const router = useRouter();
+  // ★★★ 競合状態（Race Condition）を防ぐための最重要State ★★★
+  // 会話終了処理が進行中であることを示すフラグ。trueの間は他の操作をブロックする。
+  const [isEndingCall, setIsEndingCall] = useState(false);
+
+  const interactionTimerRef = useRef<NodeJS.Timeout | null>(null); // VRMのインタラクション用タイマー
+  const router = useRouter(); // ページ遷移用のフック
+
+  // ----------------------------------------------------------------
+  // Hooks - useChatフックからロジックをまとめて取得
+  // ----------------------------------------------------------------
 
   const {
     messages,
@@ -39,7 +55,7 @@ export function ChatClient({ session }: Props) {
     thinkMode,
     analyserNode,
     initializeAudio,
-    sendMessage,
+    sendMessage, // useChatフックから元のsendMessageを受け取る
     handleSetThinkMode,
     playAudio,
     createGoodbyeMessage,
@@ -48,40 +64,57 @@ export function ChatClient({ session }: Props) {
     handleReset,
   } = useChat(session);
 
+  // ----------------------------------------------------------------
+  // Event Handlers - UIコンポーネントに渡すためのイベントハンドラ
+  // ----------------------------------------------------------------
+
   /**
-   * ユーザーが「はじめる」を押したときの処理
+   * メッセージ送信ボタンが押された時の処理。
+   * isEndingCallフラグをチェックして、割り込みを防ぐ。
+   */
+  const handleSendMessage = (input: string) => {
+    if (isLoading || isEndingCall) return;
+    sendMessage(input);
+  };
+
+  /**
+   * 最初の「はじめる」ボタンが押された時の処理
    */
   const handleUnlock = () => {
+    setIsEndingCall(false); // 開始時に終了状態をリセット
     initializeAudio().then(() => {
       setIsUnlocked(true);
       const firstMessage = messages[0];
       if (firstMessage?.role === "ai" && firstMessage.audioUrl) {
-        // 1. 感情をセットする
         if (firstMessage.emotion) setCurrentEmotion(firstMessage.emotion);
-
-        // 2. 画面に吹き出しを表示する
         setLiveMessage(firstMessage);
-
-        // 3. 音声を再生し、再生終了後に吹き出しを消して感情をリセットする
         playAudio(firstMessage.audioUrl, () => {
           setTimeout(() => {
             setLiveMessage(null);
             setCurrentEmotion("neutral");
-          }, 1000); // 1秒待ってから消す
+          }, 1000);
         });
       }
     });
   };
 
+  /**
+   * 「会話を終了する」ボタンが押された時の処理
+   */
   const handleEndCall = () => {
-    if (isLoading) return;
-    const goodbyeMessage = createGoodbyeMessage();
+    // すでに終了処理中、またはAIが思考中の場合は、二重実行を防ぐ
+    if (isLoading || isEndingCall) return;
 
+    // 会話終了モードに移行し、他の操作からの割り込みを完全にブロックする
+    setIsEndingCall(true);
+
+    const goodbyeMessage = createGoodbyeMessage();
     if (goodbyeMessage.emotion) {
       setCurrentEmotion(goodbyeMessage.emotion);
     }
     setLiveMessage(goodbyeMessage);
 
+    // 音声再生が完了した後に実行される、安全な画面遷移処理
     const onPlaybackEnd = () => {
       const isDemo = session.user?.name === "デモユーザー";
       if (isDemo) {
@@ -94,16 +127,21 @@ export function ChatClient({ session }: Props) {
     if (goodbyeMessage.audioUrl) {
       playAudio(goodbyeMessage.audioUrl, onPlaybackEnd);
     } else {
-      setTimeout(onPlaybackEnd, 1000);
+      setTimeout(onPlaybackEnd, 1000); // 音声がない場合も遷移を保証
     }
   };
 
+  /**
+   * VRMモデルがクリックされた時の処理
+   */
   const handleHeadClick = (event: ThreeEvent<MouseEvent>) => {
+    // 音声再生中や会話終了処理中は、エフェクトを発生させない
+    if (isSpeaking || isEndingCall) return;
+
     setEffects((prev) => [
       ...prev,
       { id: Date.now(), position: event.point.clone() },
     ]);
-    if (isSpeaking) return;
     if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
     const originalEmotion = currentEmotion;
     setCurrentEmotion("happy");
@@ -114,15 +152,23 @@ export function ChatClient({ session }: Props) {
     }, 2500);
   };
 
+  /**
+   * タップエフェクトのアニメーションが完了した時に呼ばれる処理
+   */
   const handleEffectComplete = (id: number) => {
     setEffects((prev) => prev.filter((effect) => effect.id !== id));
   };
+
+  // ----------------------------------------------------------------
+  // Render - 実際のUIを描画
+  // ----------------------------------------------------------------
 
   return (
     <main className="w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col bg-slate-50 font-sans">
       <AnimatePresence>
         {!isUnlocked && <UnlockScreen onUnlock={handleUnlock} />}
       </AnimatePresence>
+
       {isUnlocked && (
         <div className="w-full h-full flex flex-col z-10">
           <div className="flex-1 w-full relative min-h-0">
@@ -140,13 +186,15 @@ export function ChatClient({ session }: Props) {
               {isLoading && <ThinkingIndicator />}
             </AnimatePresence>
           </div>
+
           <ControlBarFooter
-            onSendMessage={sendMessage}
-            isLoading={isLoading}
+            onSendMessage={handleSendMessage}
+            isLoading={isLoading || isEndingCall} // 思考中と終了処理中の両方でUIを無効化
             onHistoryClick={() => setIsHistoryOpen(true)}
             onEndCallClick={handleEndCall}
             onSettingsClick={() => setIsSettingsOpen(true)}
           />
+
           <ChatHistoryOverlay
             messages={messages}
             isLoading={isLoading}
@@ -154,6 +202,7 @@ export function ChatClient({ session }: Props) {
             onClose={() => setIsHistoryOpen(false)}
             onReset={handleReset}
           />
+
           <SettingsDialog
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
