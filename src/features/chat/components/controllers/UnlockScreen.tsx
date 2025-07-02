@@ -13,9 +13,7 @@ export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => (
       <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pink-400 to-violet-500 flex items-center justify-center shadow-2xl mx-auto mb-6">
         <Sparkles className="w-12 h-12 text-white/90" />
       </div>
-      <h1 className="text-3xl font-bold text-gray-800 mb-2 font-serif">
-        ニアとおはなし
-      </h1>
+      <h1 className="text-4xl font-bold  text-gray-800 mb-2">ニアとおはなし</h1>
       <p className="text-gray-600 mb-8 max-w-sm mx-auto">
         うれしいこと、なやみごと、なんでも話してね。
       </p>

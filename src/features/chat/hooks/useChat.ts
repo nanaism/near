@@ -7,81 +7,133 @@ import { goodbyeMessages, initialDemoMessages } from "../lib/constants";
 import type { Emotion, Message } from "../model/types";
 import { resetHistoryAction } from "../services/chat.actions";
 
-// --- 型定義 ---
+// ブラウザのAudioContextの型定義（クロスブラウザ対応）
 interface CustomWindow extends Window {
   AudioContext?: typeof AudioContext;
   webkitAudioContext?: typeof AudioContext;
 }
 
+// localStorageに思考モードを保存するためのキー
 const THINK_MODE_KEY = "near-think-mode";
 
-// --- ヘルパー関数 ---
+/**
+ * 静的な初期メッセージをランダムに選択するヘルパー関数
+ * @returns Messageオブジェクト
+ */
 const createInitialMessage = (): Message => {
   const msg =
     initialDemoMessages[Math.floor(Math.random() * initialDemoMessages.length)];
   return { id: 0, role: "ai", ...msg };
 };
+
+/**
+ * 静的な別れのメッセージをランダムに選択するヘルパー関数
+ * @returns Messageオブジェクト
+ */
 const createGoodbyeMessage = (): Message => {
   const msg =
     goodbyeMessages[Math.floor(Math.random() * goodbyeMessages.length)];
   return { id: Date.now(), role: "ai", ...msg };
 };
 
-// --- カスタムフック本体 ---
+/**
+ * AIチャット機能のすべての状態とロジックを管理するカスタムフック
+ * @param session - NextAuthから提供される現在のユーザーセッション
+ * @returns チャットUIを構築するために必要な状態と関数のオブジェクト
+ */
 export function useChat(session: Session) {
+  // ----------------------------------------------------------------
+  // State and Refs - 状態と参照の管理
+  // ----------------------------------------------------------------
+
   const userId = session.user!.id!;
-  const isDemo = userId === "demo-user";
+  const isDemo = session.user?.name === "デモユーザー";
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [liveMessage, setLiveMessage] = useState<Message | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [currentEmotion, setCurrentEmotion] = useState<Emotion>("neutral");
-  const [thinkMode, setThinkMode] = useState<"fast" | "slow">("slow");
+  const [messages, setMessages] = useState<Message[]>([]); // 表示される会話履歴のリスト
+  const [isLoading, setIsLoading] = useState(false); // AIが応答を生成中かを示すフラグ
+  const [liveMessage, setLiveMessage] = useState<Message | null>(null); // AIが話している最中のメッセージ
+  const [isSpeaking, setIsSpeaking] = useState(false); // 音声が再生中かを示すフラグ
+  const [currentEmotion, setCurrentEmotion] = useState<Emotion>("neutral"); // VRMモデルの現在の感情
+  const [thinkMode, setThinkMode] = useState<"fast" | "slow">("slow"); // AIの思考モード
 
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null); // Web Audio APIのコンテキスト
+  const analyserRef = useRef<AnalyserNode | null>(null); // 口パク用の音声分析ノード
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null); // 現在再生中の音声ソース
 
-  const handleReset = async () => {
-    if (session.user?.id === "demo-user") {
-      alert("デモモードではリセットできません。");
-      return;
+  // ----------------------------------------------------------------
+  // Initialization Logic - 初期化処理
+  // ----------------------------------------------------------------
+
+  useEffect(() => {
+    // 1. localStorageから前回の思考モードを読み込む
+    try {
+      const savedMode = localStorage.getItem(THINK_MODE_KEY);
+      if (savedMode === "fast" || savedMode === "slow") setThinkMode(savedMode);
+    } catch (e) {
+      console.error("localStorage access failed:", e);
     }
-    if (
-      window.confirm(
-        "本当に全ての会話履歴をリセットしますか？この操作は元に戻せません。"
-      )
-    ) {
-      setIsLoading(true);
-      const result = await resetHistoryAction();
-      if (result.success) {
-        // フロントエンドの状態も初期化
+
+    /**
+     * 2. 会話履歴を初期化する非同期関数
+     */
+    const initializeMessages = async () => {
+      // isDemoフラグをチェックし、DBへのアクセスを完全に分離する
+      if (isDemo) {
+        // 【デモモードの場合】
+        // DBにアクセスせず、静的な初期メッセージを設定して処理を終了する。
         setMessages([createInitialMessage()]);
       } else {
-        alert(result.message);
+        // 【通常ユーザーの場合】
+        // サーバー上のリポジトリ関数を呼び出して、DBから会話履歴を取得する。
+        try {
+          const history = await getConversationsByChildId(userId, 50);
+          if (history.length > 0) {
+            // 履歴が存在すれば、フロントエンドで使えるMessage型に変換してセット
+            setMessages(
+              history.map((msg) => ({
+                id: msg.id,
+                role: msg.role,
+                text: msg.content,
+                emotion: msg.emotion as Emotion,
+              }))
+            );
+          } else {
+            // 履歴が存在しない新規ユーザーの場合、初期メッセージをセット
+            setMessages([createInitialMessage()]);
+          }
+        } catch (error) {
+          console.error("Failed to fetch history:", error);
+          // DBアクセスに失敗した場合も、フォールバックとして初期メッセージを設定
+          setMessages([createInitialMessage()]);
+        }
       }
-      setIsLoading(false);
-    }
-  };
+    };
 
-  // --- 音声再生ロジック ---
+    initializeMessages();
+  }, [isDemo, userId]);
+
+  // ----------------------------------------------------------------
+  // Core Functions - 主要な関数
+  // ----------------------------------------------------------------
+
+  /**
+   * 音声データを再生する関数。
+   * @param audioSrc - Base64の音声データ or publicな音声ファイルのパス
+   * @param onEnd - 再生終了時に実行されるコールバック
+   */
   const playAudio = useCallback((audioSrc: string, onEnd?: () => void) => {
     if (audioSourceRef.current) {
       audioSourceRef.current.onended = null;
       audioSourceRef.current.stop();
     }
-
     const context = audioContextRef.current;
-    if (!context) {
+    if (!context || !audioSrc) {
       onEnd?.();
       return;
     }
-
     const sourceUrl = audioSrc.startsWith("/")
       ? audioSrc
       : `data:audio/wav;base64,${audioSrc}`;
-
     fetch(sourceUrl)
       .then((res) => res.arrayBuffer())
       .then((buffer) => context.decodeAudioData(buffer))
@@ -104,45 +156,9 @@ export function useChat(session: Session) {
       });
   }, []);
 
-  // --- 初期化処理 ---
-  useEffect(() => {
-    // 思考モードをlocalStorageから読み込み
-    try {
-      const savedMode = localStorage.getItem(THINK_MODE_KEY);
-      if (savedMode === "fast" || savedMode === "slow") setThinkMode(savedMode);
-    } catch (e) {
-      console.error("localStorage access failed:", e);
-    }
-
-    // 会話履歴を取得
-    const fetchHistory = async () => {
-      if (isDemo) {
-        setMessages([createInitialMessage()]);
-        return;
-      }
-      try {
-        const history = await getConversationsByChildId(userId, 50);
-        if (history.length > 0) {
-          setMessages(
-            history.map((msg) => ({
-              id: msg.id,
-              role: msg.role,
-              text: msg.content,
-              emotion: msg.emotion as Emotion,
-            }))
-          );
-        } else {
-          setMessages([createInitialMessage()]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch history:", error);
-        setMessages([createInitialMessage()]);
-      }
-    };
-    fetchHistory();
-  }, [isDemo, userId]);
-
-  // --- 主要な関数 ---
+  /**
+   * ユーザーのアクション（クリックなど）をきっかけにWeb Audio APIを初期化する関数
+   */
   const initializeAudio = async () => {
     if (audioContextRef.current) return;
     try {
@@ -153,7 +169,6 @@ export function useChat(session: Session) {
         return;
       }
       const context = new AudioContext();
-      // resume AudioContext if it's in a suspended state
       if (context.state === "suspended") {
         await context.resume();
       }
@@ -167,6 +182,10 @@ export function useChat(session: Session) {
     }
   };
 
+  /**
+   * ユーザーからのメッセージをサーバーに送信し、AIの応答を処理する関数
+   * @param input - ユーザーが入力したテキスト
+   */
   const sendMessage = async (input: string) => {
     if (isLoading) return;
     setIsLoading(true);
@@ -221,7 +240,7 @@ export function useChat(session: Session) {
       const errorMsg: Message = {
         id: Date.now() + 1,
         role: "ai",
-        text: "ごめんなさい、少し調子が悪みたい…",
+        text: "ごめんなさい、少し調子が悪いみたい……。あとでもう一回試してね！",
         emotion: "sad",
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -232,6 +251,34 @@ export function useChat(session: Session) {
     }
   };
 
+  /**
+   * 会話履歴をリセットする関数
+   */
+  const handleReset = async () => {
+    if (isDemo) {
+      alert("デモモードではリセットできません。");
+      return;
+    }
+    if (
+      window.confirm(
+        "本当に全ての会話履歴をリセットしますか？この操作は元に戻せません。"
+      )
+    ) {
+      setIsLoading(true);
+      const result = await resetHistoryAction();
+      if (result.success) {
+        setMessages([createInitialMessage()]);
+      } else {
+        alert(result.message);
+      }
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * AIの思考モードを変更する関数
+   * @param mode - 'fast' or 'slow'
+   */
   const handleSetThinkMode = (mode: "fast" | "slow") => {
     setThinkMode(mode);
     try {
@@ -241,21 +288,28 @@ export function useChat(session: Session) {
     }
   };
 
+  // ----------------------------------------------------------------
+  // Returned values - UIコンポーネントに渡すための返り値
+  // ----------------------------------------------------------------
+
   return {
+    // 状態
     messages,
     isLoading,
     isSpeaking,
     liveMessage,
     currentEmotion,
     thinkMode,
-    analyserNode: analyserRef.current,
+    analyserNode: analyserRef.current, // VRMの口パク用
+
+    // 関数
     initializeAudio,
     sendMessage,
     handleSetThinkMode,
-    playAudio, // return for use in ChatClient
-    setCurrentEmotion, // return for use in ChatClient
-    setLiveMessage, // return for use in ChatClient
-    createGoodbyeMessage, // return for use in ChatClient
+    playAudio,
+    setCurrentEmotion,
+    setLiveMessage,
+    createGoodbyeMessage,
     handleReset,
   };
 }

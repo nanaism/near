@@ -3,6 +3,7 @@
 import type { ThreeEvent } from "@react-three/fiber";
 import { AnimatePresence } from "framer-motion";
 import type { Session } from "next-auth";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import * as THREE from "three";
 import { useChat } from "../hooks/useChat";
@@ -53,6 +54,8 @@ export function ChatClient({ session }: Props) {
     setEffects((prev) => prev.filter((effect) => effect.id !== id));
   };
 
+  const router = useRouter();
+
   const {
     messages,
     isLoading,
@@ -85,6 +88,9 @@ export function ChatClient({ session }: Props) {
     });
   };
 
+  /**
+   * 会話を終了する際のロジック
+   */
   const handleEndCall = () => {
     if (isLoading) return;
     const goodbyeMessage = createGoodbyeMessage();
@@ -94,14 +100,24 @@ export function ChatClient({ session }: Props) {
     }
     setLiveMessage(goodbyeMessage);
 
+    // 音声再生が完了した後のコールバック関数
+    const onPlaybackEnd = () => {
+      // isDemoフラグをチェックして、リダイレクト先を分岐させる
+      const isDemo = session.user?.name === "デモユーザー";
+      if (isDemo) {
+        // デモユーザーの場合は、ログインページに遷移させる
+        router.push("/login");
+      } else {
+        // 通常のログインユーザーの場合は、同じページ内のロック画面に戻す
+        setIsUnlocked(false);
+      }
+    };
+
     if (goodbyeMessage.audioUrl) {
-      playAudio(goodbyeMessage.audioUrl, () => {
-        if (session.user?.name === "デモユーザー") {
-          window.location.reload();
-        } else {
-          setIsUnlocked(false);
-        }
-      });
+      playAudio(goodbyeMessage.audioUrl, onPlaybackEnd);
+    } else {
+      // 音声がない場合も、少し待ってからコールバックを実行
+      setTimeout(onPlaybackEnd, 1000);
     }
   };
 
@@ -110,7 +126,6 @@ export function ChatClient({ session }: Props) {
       <AnimatePresence>
         {!isUnlocked && <UnlockScreen onUnlock={handleUnlock} />}
       </AnimatePresence>
-
       {isUnlocked && (
         <div className="w-full h-full flex flex-col z-10">
           <div className="flex-1 w-full relative min-h-0">

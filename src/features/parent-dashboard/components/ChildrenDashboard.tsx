@@ -1,16 +1,13 @@
-// src/features/parent-dashboard/components/ChildrenDashboard.tsx
-
 "use client";
 
 import type { Child } from "@/entities/child/model/types";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { addChildAction } from "../services/children.actions";
 import { QrCodeModal } from "./QrCodeModal";
 
-// useFormStatusを利用するためのサブコンポーネント
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -28,8 +25,7 @@ export function ChildrenDashboard({ initialChildren }: Props) {
   const [children, setChildren] = useState<Child[]>(initialChildren);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
 
-  // React 19のuseFormStateフックを使用
-  const [formState, formAction] = useFormState(addChildAction, {
+  const [formState, formAction] = useActionState(addChildAction, {
     success: false,
     message: "",
   });
@@ -38,7 +34,6 @@ export function ChildrenDashboard({ initialChildren }: Props) {
 
   useEffect(() => {
     if (formState.success && formState.data) {
-      // フォームの送信が成功したら、入力欄をリセットし、stateを更新
       formRef.current?.reset();
       setChildren((prev) => [...prev, formState.data as Child]);
     }

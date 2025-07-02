@@ -34,7 +34,7 @@ export function AppFooter({ className }: Props) {
           rel="noopener noreferrer"
           className="hover:underline"
         >
-          © Near Project
+          © 2025 Near Project
         </a>
       </div>
     </motion.footer>
