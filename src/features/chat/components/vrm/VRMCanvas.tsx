@@ -1,9 +1,10 @@
+// src/features/chat/components/vrm/VRMCanvas.tsx
+
 "use client";
 
 import type { Emotion } from "@/features/chat/model/types";
 import { OrbitControls, Sparkles } from "@react-three/drei";
-import type { ThreeEvent } from "@react-three/fiber";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { Suspense, memo } from "react";
 import * as THREE from "three";
 import { ModelLoader } from "./ModelLoader";
@@ -34,24 +35,18 @@ export const VRMCanvas = memo(
     return (
       <Canvas
         shadows
-        camera={{ position: [0, 1.2, 1.8], fov: 25 }}
+        // ★★★ 最重要修正点: カメラを初期コードの値に戻す ★★★
+        camera={{ position: [0, 1.5, 1.5], fov: 25 }}
         gl={{ antialias: true }}
-        dpr={[1, 2]} // デバイスのピクセル比に応じて解像度を調整
-        style={{ touchAction: "none" }}
+        dpr={[1, 1.5]}
+        className="w-full h-full touch-none"
       >
-        {/* ライティング */}
         <ambientLight intensity={1.5} />
-        <directionalLight
-          position={[2, 3, 3]}
-          intensity={2.0}
-          castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
-        />
-
-        {/* 背景 */}
+        <directionalLight position={[5, 5, 5]} intensity={2.5} castShadow />
         <color attach="background" args={["#f0f5ff"]} />
-        <fog attach="fog" args={["#f0f5ff", 2, 10]} />
+        <fog attach="fog" args={["#f0f5ff", 2.5, 10]} />
+
+        {/* デバッグ用のグリッドは不要になったため削除 */}
 
         <Suspense fallback={<ModelLoader />}>
           <VRMViewer
@@ -60,7 +55,6 @@ export const VRMCanvas = memo(
             isSpeaking={isSpeaking}
             onHeadClick={onHeadClick}
           />
-
           {effects.map((effect) => (
             <TapEffect
               key={effect.id}
@@ -68,26 +62,23 @@ export const VRMCanvas = memo(
               onComplete={onEffectComplete}
             />
           ))}
-
-          {isLoading && <ThinkingOrbs />}
           {isLoading && (
-            <Sparkles
-              count={80}
-              scale={2}
-              size={15}
-              speed={0.4}
-              color="#fff"
-              position={[0, 1, 0]}
-            />
+            <>
+              <ThinkingOrbs />
+              <Sparkles
+                count={100}
+                scale={1.5}
+                size={20}
+                speed={0.4}
+                color="#fff"
+              />
+            </>
           )}
         </Suspense>
 
         <OrbitControls
-          target={[0, 1.0, 0]}
-          minPolarAngle={Math.PI / 2.5}
-          maxPolarAngle={Math.PI / 1.8}
-          minAzimuthAngle={-Math.PI / 4}
-          maxAzimuthAngle={Math.PI / 4}
+          // ★★★ 最重要修正点: ターゲットを初期コードの値に戻す ★★★
+          target={[0, 1.2, 0]}
           enableZoom={false}
           enablePan={false}
         />

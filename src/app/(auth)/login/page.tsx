@@ -44,7 +44,7 @@ function LoginPageContent() {
   const tabs = [
     {
       id: "adult",
-      label: "保護者・一般の方",
+      label: "保護者・一般",
       icon: <ShieldCheck className="w-5 h-5" />,
     },
     {
@@ -199,13 +199,16 @@ function LoginPageContent() {
 const DemoSection = () => (
   <div className="relative p-5 rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 text-white shadow-xl overflow-hidden group">
     <Sparkles className="absolute -top-2 -right-2 w-20 h-20 text-white/20 opacity-80 transition-transform duration-500 group-hover:scale-110" />
-    <div className="relative z-10">
+    <div className="relative">
       <div className="flex items-center gap-2 mb-2">
         <Star className="w-6 h-6" />
         <h3 className="font-display text-xl font-bold">まずはお試し（デモ）</h3>
       </div>
+      <p className="text-sm text-white/90  font-medium">
+        アカウント登録不要で、
+      </p>
       <p className="text-sm text-white/90 mb-4 font-medium">
-        アカウント登録不要で、すぐにニアとの対話を体験できます。
+        すぐにニアとの対話を体験できます。
       </p>
       <DemoSignInButton />
     </div>

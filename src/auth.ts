@@ -45,6 +45,7 @@ export const {
       name: "Demo Login",
       credentials: {},
       async authorize(credentials) {
+        console.log(credentials);
         return { id: `demo-${uuidv4()}`, name: "デモユーザー" };
       },
     }),

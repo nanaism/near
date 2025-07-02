@@ -1,56 +1,75 @@
-import { auth } from "@/auth";
+"use client";
+
 import { Button } from "@/shared/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { LogOut, Sparkles } from "lucide-react";
+import type { ComponentProps } from "react";
 import { handleDemoSignIn, handleGoogleSignIn, handleSignOut } from "./actions";
 
-/**
- * Googleサインインボタン。
- * このコンポーネントはアクションをインポートするだけなので、Client/Serverどちらのコンポーネントからでも安全に使用できます。
- */
-export function GoogleSignInButton() {
+// GoogleアイコンをインラインSVGコンポーネントとして定義
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 48 48"
+    width="1em"
+    height="1em"
+    {...props}
+  >
+    <path
+      fill="#FFC107"
+      d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+    />
+    <path
+      fill="#FF3D00"
+      d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+    />
+    <path
+      fill="#4CAF50"
+      d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+    />
+    <path
+      fill="#1976D2"
+      d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C41.38,36.33,44,30.608,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+    />
+  </svg>
+);
+
+export function GoogleSignInButton(props: ComponentProps<typeof Button>) {
   return (
-    // ★修正: インラインのアクションを、インポートした関数に置き換え
-    <form action={handleGoogleSignIn}>
-      <Button type="submit" className="w-full">
+    <form action={handleGoogleSignIn} className="w-full">
+      <Button type="submit" className="w-full" {...props}>
+        <GoogleIcon className="w-5 h-5 mr-2" />
         Googleでログイン
       </Button>
     </form>
   );
 }
 
-/**
- * デモサインインボタン。
- */
-export function DemoSignInButton() {
+export function DemoSignInButton(props: ComponentProps<typeof Button>) {
   return (
-    <form action={handleDemoSignIn}>
-      <Button variant="secondary" className="w-full" type="submit">
+    <form action={handleDemoSignIn} className="w-full">
+      <Button type="submit" variant="secondary" className="w-full" {...props}>
         <Sparkles className="w-4 h-4 mr-2" />
-        デモを体験する
+        {props.children || "アカウント登録不要で体験"}
       </Button>
     </form>
   );
 }
 
 /**
- * サインアウトボタン。
- * このコンポーネントは`auth()`を呼び出すため、サーバーコンポーネントである必要があります。
- * (例: /admin/layout.tsx のようなサーバーコンポーネント内で使用)
+ * サインアウトボタン
+ * asChildを使えるようにし、フォームの送信を内包する
  */
-export async function SignOutButton() {
-  const session = await auth();
-  if (!session?.user) return null;
-
+export function SignOutButton({
+  children,
+  ...props
+}: ComponentProps<typeof Button>) {
   return (
-    <div className="flex items-center gap-4">
-      <span className="text-sm text-gray-600 hidden sm:inline">
-        {session.user.email}
-      </span>
-      <form action={handleSignOut}>
-        <Button type="submit" variant="outline">
-          ログアウト
-        </Button>
-      </form>
-    </div>
+    // `asChild`が指定された場合、この`form`は子要素（DropdownMenuItem）にマージされる
+    <form action={handleSignOut} className="w-full">
+      <Button type="submit" variant="outline" {...props}>
+        <LogOut className="w-4 h-4 mr-2" />
+        {children || "ログアウト"}
+      </Button>
+    </form>
   );
 }

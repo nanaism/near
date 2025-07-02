@@ -3,31 +3,33 @@ import { getChildrenByParentId } from "@/entities/child/services/repository";
 import { ChildrenDashboard } from "@/features/parent-dashboard/components/ChildrenDashboard";
 import { redirect } from "next/navigation";
 
-// このページはサーバーコンポーネントです
 export default async function DashboardPage() {
   const session = await auth();
-
-  // middlewareでもチェックしているが、念のためここでも確認
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  // サーバーサイドで、リポジトリ経由で子供のリストを事前に取得
   const initialChildren = await getChildrenByParentId(session.user.id);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold">
-          ようこそ、{session.user.name || "保護者"}さん
-        </h2>
-        <p className="text-gray-600 mt-1">
-          管理する子供の追加や、ログイン用のQRコード発行ができます。
-        </p>
-      </div>
+    // カードUIを導入して、情報のまとまりを分かりやすくする
+    <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8">
+      <div className="space-y-8">
+        {/* ページヘッダー */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-6">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+              ようこそ、{session.user.name || "保護者"}さん
+            </h1>
+            <p className="text-slate-600 mt-2">
+              お子さまの管理や、ログイン用QRコードの発行ができます。
+            </p>
+          </div>
+        </div>
 
-      {/* データの受け渡しとインタラクションはクライアントコンポーネントに任せる */}
-      <ChildrenDashboard initialChildren={initialChildren} />
+        {/* メインダッシュボード */}
+        <ChildrenDashboard initialChildren={initialChildren} />
+      </div>
     </div>
   );
 }

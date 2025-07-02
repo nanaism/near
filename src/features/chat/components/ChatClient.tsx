@@ -4,7 +4,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { AnimatePresence } from "framer-motion";
 import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState } from "react"; // useRefをインポート
 import * as THREE from "three";
 import { useChat } from "../hooks/useChat";
 import { ControlBarFooter } from "./controllers/ControlBarFooter";
@@ -23,36 +23,10 @@ export function ChatClient({ session }: Props) {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
   const [effects, setEffects] = useState<
     Array<{ id: number; position: THREE.Vector3 }>
   >([]);
   const interactionTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleHeadClick = (event: ThreeEvent<MouseEvent>) => {
-    // エフェクトを追加
-    setEffects((prev) => [
-      ...prev,
-      { id: Date.now(), position: event.point.clone() },
-    ]);
-
-    // 感情を一時的に変化させる
-    if (isSpeaking) return;
-    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
-
-    const originalEmotion = currentEmotion;
-    setCurrentEmotion("happy");
-
-    interactionTimerRef.current = setTimeout(() => {
-      setCurrentEmotion(
-        originalEmotion === "happy" ? "neutral" : originalEmotion
-      );
-    }, 2500);
-  };
-
-  const handleEffectComplete = (id: number) => {
-    setEffects((prev) => prev.filter((effect) => effect.id !== id));
-  };
 
   const router = useRouter();
 
@@ -74,23 +48,31 @@ export function ChatClient({ session }: Props) {
     handleReset,
   } = useChat(session);
 
+  /**
+   * ユーザーが「はじめる」を押したときの処理
+   */
   const handleUnlock = () => {
     initializeAudio().then(() => {
       setIsUnlocked(true);
       const firstMessage = messages[0];
       if (firstMessage?.role === "ai" && firstMessage.audioUrl) {
-        playAudio(firstMessage.audioUrl, () => {
-          // Welcome message finished, return to neutral
-          setCurrentEmotion("neutral");
-        });
+        // 1. 感情をセットする
         if (firstMessage.emotion) setCurrentEmotion(firstMessage.emotion);
+
+        // 2. 画面に吹き出しを表示する
+        setLiveMessage(firstMessage);
+
+        // 3. 音声を再生し、再生終了後に吹き出しを消して感情をリセットする
+        playAudio(firstMessage.audioUrl, () => {
+          setTimeout(() => {
+            setLiveMessage(null);
+            setCurrentEmotion("neutral");
+          }, 1000); // 1秒待ってから消す
+        });
       }
     });
   };
 
-  /**
-   * 会話を終了する際のロジック
-   */
   const handleEndCall = () => {
     if (isLoading) return;
     const goodbyeMessage = createGoodbyeMessage();
@@ -100,15 +82,11 @@ export function ChatClient({ session }: Props) {
     }
     setLiveMessage(goodbyeMessage);
 
-    // 音声再生が完了した後のコールバック関数
     const onPlaybackEnd = () => {
-      // isDemoフラグをチェックして、リダイレクト先を分岐させる
       const isDemo = session.user?.name === "デモユーザー";
       if (isDemo) {
-        // デモユーザーの場合は、ログインページに遷移させる
         router.push("/login");
       } else {
-        // 通常のログインユーザーの場合は、同じページ内のロック画面に戻す
         setIsUnlocked(false);
       }
     };
@@ -116,9 +94,28 @@ export function ChatClient({ session }: Props) {
     if (goodbyeMessage.audioUrl) {
       playAudio(goodbyeMessage.audioUrl, onPlaybackEnd);
     } else {
-      // 音声がない場合も、少し待ってからコールバックを実行
       setTimeout(onPlaybackEnd, 1000);
     }
+  };
+
+  const handleHeadClick = (event: ThreeEvent<MouseEvent>) => {
+    setEffects((prev) => [
+      ...prev,
+      { id: Date.now(), position: event.point.clone() },
+    ]);
+    if (isSpeaking) return;
+    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
+    const originalEmotion = currentEmotion;
+    setCurrentEmotion("happy");
+    interactionTimerRef.current = setTimeout(() => {
+      setCurrentEmotion(
+        originalEmotion === "happy" ? "neutral" : originalEmotion
+      );
+    }, 2500);
+  };
+
+  const handleEffectComplete = (id: number) => {
+    setEffects((prev) => prev.filter((effect) => effect.id !== id));
   };
 
   return (
@@ -143,7 +140,6 @@ export function ChatClient({ session }: Props) {
               {isLoading && <ThinkingIndicator />}
             </AnimatePresence>
           </div>
-
           <ControlBarFooter
             onSendMessage={sendMessage}
             isLoading={isLoading}
@@ -151,7 +147,6 @@ export function ChatClient({ session }: Props) {
             onEndCallClick={handleEndCall}
             onSettingsClick={() => setIsSettingsOpen(true)}
           />
-
           <ChatHistoryOverlay
             messages={messages}
             isLoading={isLoading}

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next"; // ★ Viewportを追加
 import { SessionProvider } from "next-auth/react";
-import { Inter, Kiwi_Maru } from "next/font/google"; // ★ Zen_Kaku_Gothic_New を Kiwi_Maru に変更
+import { Inter, Kiwi_Maru, M_PLUS_Rounded_1c } from "next/font/google"; // ★ Zen_Kaku_Gothic_New を Kiwi_Maru に変更
 import "./globals.css";
 
 // Inter は可読性の高い本文用フォント
@@ -12,6 +12,13 @@ const kiwi_maru = Kiwi_Maru({
   weight: ["400", "500"], // 必要なウェイトを指定
   variable: "--font-kiwi-maru",
 });
+
+const cuteFont = M_PLUS_Rounded_1c({
+  subsets: ["latin"],
+  weight: ["400", "700", "800"],
+  variable: "--font-display-cute",
+});
+
 export const metadata: Metadata = {
   title: "Near ─ニア",
   description: "いつもそばに。子どものためのAIチャットアプリ",
@@ -32,7 +39,9 @@ export default function RootLayout({
   return (
     <SessionProvider>
       <html lang="ja">
-        <body className={`${inter.variable} ${kiwi_maru.variable} font-sans`}>
+        <body
+          className={`${inter.variable} ${kiwi_maru.variable} ${cuteFont.variable} font-sans`}
+        >
           {children}
         </body>
       </html>
