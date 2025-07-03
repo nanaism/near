@@ -1,6 +1,8 @@
 "use client";
 
 import { getConversationsByChildId } from "@/entities/conversation/services/repository";
+import { supabase } from "@/shared/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Session } from "next-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { goodbyeMessages, initialDemoMessages } from "../lib/constants";
@@ -59,6 +61,7 @@ export function useChat(session: Session) {
   const audioContextRef = useRef<AudioContext | null>(null); // Web Audio APIのコンテキスト
   const analyserRef = useRef<AnalyserNode | null>(null); // 口パク用の音声分析ノード
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null); // 現在再生中の音声ソース
+  const channelRef = useRef<RealtimeChannel | null>(null); // 購読チャネルを保持するためのRef
 
   // ----------------------------------------------------------------
   // Initialization Logic - 初期化処理
@@ -110,6 +113,58 @@ export function useChat(session: Session) {
     };
 
     initializeMessages();
+
+    // --- リアルタイム購読のセットアップ ---
+    // デモモードの場合は、リアルタイム購読を行わない
+    if (isDemo) return;
+
+    // 1. 購読チャネルを定義。'conversations'テーブルの、'child_id'が現在のユーザーIDと一致する行を監視する。
+    const channel = supabase
+      .channel(`realtime-conversations:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "conversations",
+          filter: `child_id=eq.${userId}`,
+        },
+        (payload) => {
+          // 2. INSERTイベントが発生したら、新しいメッセージデータをペイロードから受け取る
+          const newMessage = payload.new as {
+            id: number;
+            role: "user" | "ai";
+            content: string;
+            emotion: Emotion | null;
+          };
+
+          // 3. 自分の送信したメッセージは既にUIに反映されているので、AIからのメッセージのみを追加する
+          if (newMessage.role === "ai") {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              {
+                id: newMessage.id,
+                role: "ai",
+                text: newMessage.content,
+                emotion: newMessage.emotion ?? undefined,
+              },
+            ]);
+          }
+        }
+      )
+      .subscribe();
+
+    // 購読チャネルをRefに保存
+    channelRef.current = channel;
+
+    // 4. クリーンアップ関数：コンポーネントがアンマウントされる際に、購読を解除する。
+    // これを忘れると、メモリリークや意図しない動作の原因になる。
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [isDemo, userId]);
 
   // ----------------------------------------------------------------
