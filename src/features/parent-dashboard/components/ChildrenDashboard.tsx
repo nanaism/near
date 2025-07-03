@@ -3,11 +3,15 @@
 import type { Child } from "@/entities/child/model/types";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { useActionState, useEffect, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { supabase } from "@/shared/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useSession } from "next-auth/react";
+import { useEffect, useRef, useState } from "react";
+import { useFormState, useFormStatus } from "react-dom";
 import { addChildAction } from "../services/children.actions";
 import { QrCodeModal } from "./QrCodeModal";
 
+// useFormStatusを利用するためのサブコンポーネント
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -22,25 +26,95 @@ type Props = {
 };
 
 export function ChildrenDashboard({ initialChildren }: Props) {
+  // ----------------------------------------------------------------
+  // State and Hooks
+  // ----------------------------------------------------------------
+
   const [children, setChildren] = useState<Child[]>(initialChildren);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
 
-  const [formState, formAction] = useActionState(addChildAction, {
+  // ★ 1. useSessionフックで現在のセッション情報を取得
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id; // ログインしている保護者のID
+
+  const [formState, formAction] = useFormState(addChildAction, {
     success: false,
     message: "",
   });
 
   const formRef = useRef<HTMLFormElement>(null);
 
+  // ----------------------------------------------------------------
+  // Side Effects
+  // ----------------------------------------------------------------
+
+  // フォーム送信成功時の処理 (変更なし)
   useEffect(() => {
     if (formState.success && formState.data) {
       formRef.current?.reset();
+      // このデバイスでの即時反映（リアルタイム通知を待たない）
       setChildren((prev) => [...prev, formState.data as Child]);
     }
   }, [formState]);
 
+  // ★★★ 2. リアルタイム更新のためのuseEffect ★★★
+  useEffect(() => {
+    // 認証済みで、かつユーザーIDが取得できた場合のみ購読を開始
+    if (status !== "authenticated" || !userId) {
+      return;
+    }
+
+    const channel: RealtimeChannel = supabase
+      .channel(`realtime-children-dashboard:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // INSERT, UPDATE, DELETE すべてを監視
+          schema: "public",
+          table: "children",
+          filter: `managed_by_user_id=eq.${userId}`, // 自分の管理する子供の変更のみを監視
+        },
+        (payload) => {
+          console.log("Realtime update received:", payload);
+
+          // ★ 3. イベントタイプに応じたUIステートの更新ロジック
+          switch (payload.eventType) {
+            case "INSERT":
+              // 他の端末で追加された子供をリストに加える
+              setChildren((prev) => [...prev, payload.new as Child]);
+              break;
+            case "UPDATE":
+              // 他の端末で更新された子供の情報をリストに反映する
+              setChildren((prev) =>
+                prev.map((child) =>
+                  child.id === payload.new.id ? (payload.new as Child) : child
+                )
+              );
+              break;
+            case "DELETE":
+              // 他の端末で削除された子供をリストから除く
+              setChildren((prev) =>
+                prev.filter((child) => child.id !== payload.old.id)
+              );
+              break;
+          }
+        }
+      )
+      .subscribe();
+
+    // ★ 4. クリーンアップ関数：コンポーネントが不要になったら購読を解除
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [status, userId]); // statusまたはuserIdが変更されたら再購読
+
+  // ----------------------------------------------------------------
+  // Render
+  // ----------------------------------------------------------------
+
   return (
     <>
+      {/* --- 新しい子供を追加するフォーム --- */}
       <div className="p-6 bg-white rounded-lg shadow">
         <h3 className="text-xl font-semibold mb-4">新しい子供を追加</h3>
         <form
@@ -57,11 +131,18 @@ export function ChildrenDashboard({ initialChildren }: Props) {
           />
           <SubmitButton />
         </form>
-        {!formState.success && formState.message && (
-          <p className="text-red-500 mt-2 text-sm">{formState.message}</p>
+        {formState.message && (
+          <p
+            className={`${
+              formState.success ? "text-green-600" : "text-red-500"
+            } mt-2 text-sm`}
+          >
+            {formState.message}
+          </p>
         )}
       </div>
 
+      {/* --- 管理している子供の一覧 --- */}
       <div className="p-6 bg-white rounded-lg shadow">
         <h3 className="text-xl font-semibold mb-4">管理している子供の一覧</h3>
         <div className="space-y-3">
@@ -93,6 +174,7 @@ export function ChildrenDashboard({ initialChildren }: Props) {
         </div>
       </div>
 
+      {/* --- QRコード表示モーダル --- */}
       {selectedChild && (
         <QrCodeModal
           childId={selectedChild.id}
