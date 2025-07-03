@@ -1,9 +1,7 @@
-// src/features/chat/lib/constants.ts
-
 import type { Emotion } from "../model/types";
 
 // アプリケーションのバージョン
-export const APP_VERSION = "3.0.1";
+export const APP_VERSION = "3.1.0";
 
 // 会話履歴を要約するトリガーとなる会話数
 export const SUMMARY_TRIGGER_COUNT = 10;

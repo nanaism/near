@@ -49,7 +49,7 @@ function LoginPageContent() {
     },
     {
       id: "child",
-      label: "お子さまはこちら",
+      label: "お子さま",
       icon: <Camera className="w-5 h-5" />,
     },
   ];
@@ -64,7 +64,7 @@ function LoginPageContent() {
         duration: 0.7,
         ease: [0.22, 1, 0.36, 1],
         when: "beforeChildren",
-        staggerChildren: 0.2, // 子要素を0.1秒ずつ遅延させる
+        staggerChildren: 0.3, // 子要素を0.3秒ずつ遅延させる
       },
     },
   };
