@@ -28,7 +28,6 @@ export const VRMViewer = memo(
       loader.register((parser) => new VRMLoaderPlugin(parser));
     });
 
-    // ★★★ あなたの初期コードのロジックを完全に復元 ★★★
     const vrmRef = useRef<VRM | null>(null);
     const interactionRef = useRef<THREE.Mesh>(null); // クリック判定用
 

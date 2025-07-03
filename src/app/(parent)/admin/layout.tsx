@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { SignOutButton } from "@/shared/components/auth/AuthButtons"; // ★ SignOutButtonを修正して使います
+import { SignOutButton } from "@/shared/components/auth/AuthButtons";
 import { UserCircle2 } from "lucide-react";
 import Link from "next/link";
 import React, { Suspense } from "react";

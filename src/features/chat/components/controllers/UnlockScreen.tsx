@@ -43,7 +43,6 @@ export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
         exit="exit"
         className="w-full flex-grow flex flex-col justify-center items-center p-6 text-center"
       >
-        {/* ★★★ ここからが修正点 ★★★ */}
         {/* 不要なmotion.divを削除し、variantsをbuttonに直接適用 */}
         <motion.button
           variants={itemVariants} // 親divからここに移動
@@ -70,7 +69,6 @@ export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
             <Phone className="w-16 h-16 drop-shadow-lg" />
           </div>
         </motion.button>
-        {/* ★★★ ここまでが修正点 ★★★ */}
 
         <motion.div variants={itemVariants} className="mt-12">
           <h1 className="font-display-cute text-4xl font-bold text-gray-800 tracking-tight">

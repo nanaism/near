@@ -1,5 +1,3 @@
-// src/app/api/chat/route.ts
-
 import {
   getChildSummary,
   upsertChildSummary,

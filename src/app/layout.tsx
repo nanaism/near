@@ -1,6 +1,6 @@
-import type { Metadata, Viewport } from "next"; // ★ Viewportを追加
+import type { Metadata, Viewport } from "next"; 
 import { SessionProvider } from "next-auth/react";
-import { Inter, Kiwi_Maru, M_PLUS_Rounded_1c } from "next/font/google"; // ★ Zen_Kaku_Gothic_New を Kiwi_Maru に変更
+import { Inter, Kiwi_Maru, M_PLUS_Rounded_1c } from "next/font/google";
 import "./globals.css";
 
 // Inter は可読性の高い本文用フォント

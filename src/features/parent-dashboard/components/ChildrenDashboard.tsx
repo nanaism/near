@@ -1,17 +1,41 @@
 "use client";
 
 import type { Child } from "@/entities/child/model/types";
+import type { DashboardData } from "@/entities/dashboard/services/repository";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/components/ui/tabs";
 import { supabase } from "@/shared/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { AlertTriangle, MessageSquare, Smile, Star } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { addChildAction } from "../services/children.actions";
+import { EmotionChart } from "./charts/EmotionChart";
+import { TopicCloud } from "./charts/TopicCloud";
 import { QrCodeModal } from "./QrCodeModal";
 
-// useFormStatusを利用するためのサブコンポーネント
+// 型定義
+type ChildWithDashboardData = Child & { dashboardData: DashboardData };
+
+// 送信ボタン
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -21,100 +45,69 @@ function SubmitButton() {
   );
 }
 
-type Props = {
-  initialChildren: Child[];
-};
-
-export function ChildrenDashboard({ initialChildren }: Props) {
-  // ----------------------------------------------------------------
-  // State and Hooks
-  // ----------------------------------------------------------------
-
-  const [children, setChildren] = useState<Child[]>(initialChildren);
+// メインコンポーネント
+export function ChildrenDashboard({
+  initialChildren,
+}: {
+  initialChildren: ChildWithDashboardData[];
+}) {
+  const [children, setChildren] =
+    useState<ChildWithDashboardData[]>(initialChildren);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
-
-  // ★ 1. useSessionフックで現在のセッション情報を取得
   const { data: session, status } = useSession();
-  const userId = session?.user?.id; // ログインしている保護者のID
+  const userId = session?.user?.id;
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const [formState, formAction] = useFormState(addChildAction, {
+  const [formState, formAction] = useActionState(addChildAction, {
     success: false,
     message: "",
   });
 
-  const formRef = useRef<HTMLFormElement>(null);
-
-  // ----------------------------------------------------------------
-  // Side Effects
-  // ----------------------------------------------------------------
-
-  // フォーム送信成功時の処理 (変更なし)
+  // フォーム送信成功時の処理
   useEffect(() => {
     if (formState.success && formState.data) {
       formRef.current?.reset();
-      // このデバイスでの即時反映（リアルタイム通知を待たない）
-      setChildren((prev) => [...prev, formState.data as Child]);
+      const newChild: ChildWithDashboardData = {
+        ...(formState.data as Child),
+        dashboardData: {
+          activity: { total: 0 },
+          emotionalSpectrum: { positive: 0, negative: 0, neutral: 0 },
+          topics: [],
+          alert: null,
+        },
+      };
+      setChildren((prev) => [...prev, newChild]);
     }
   }, [formState]);
 
-  // ★★★ 2. リアルタイム更新のためのuseEffect ★★★
+  // リアルタイム更新の購読
   useEffect(() => {
-    // 認証済みで、かつユーザーIDが取得できた場合のみ購読を開始
-    if (status !== "authenticated" || !userId) {
-      return;
-    }
-
+    if (status !== "authenticated" || !userId) return;
     const channel: RealtimeChannel = supabase
       .channel(`realtime-children-dashboard:${userId}`)
       .on(
         "postgres_changes",
         {
-          event: "*", // INSERT, UPDATE, DELETE すべてを監視
+          event: "DELETE",
           schema: "public",
           table: "children",
-          filter: `managed_by_user_id=eq.${userId}`, // 自分の管理する子供の変更のみを監視
+          filter: `managed_by_user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("Realtime update received:", payload);
-
-          // ★ 3. イベントタイプに応じたUIステートの更新ロジック
-          switch (payload.eventType) {
-            case "INSERT":
-              // 他の端末で追加された子供をリストに加える
-              setChildren((prev) => [...prev, payload.new as Child]);
-              break;
-            case "UPDATE":
-              // 他の端末で更新された子供の情報をリストに反映する
-              setChildren((prev) =>
-                prev.map((child) =>
-                  child.id === payload.new.id ? (payload.new as Child) : child
-                )
-              );
-              break;
-            case "DELETE":
-              // 他の端末で削除された子供をリストから除く
-              setChildren((prev) =>
-                prev.filter((child) => child.id !== payload.old.id)
-              );
-              break;
-          }
+          setChildren((prev) =>
+            prev.filter((child) => child.id !== payload.old.id)
+          );
         }
       )
       .subscribe();
-
-    // ★ 4. クリーンアップ関数：コンポーネントが不要になったら購読を解除
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [status, userId]); // statusまたはuserIdが変更されたら再購読
-
-  // ----------------------------------------------------------------
-  // Render
-  // ----------------------------------------------------------------
+  }, [status, userId]);
 
   return (
     <>
-      {/* --- 新しい子供を追加するフォーム --- */}
+      {/* 新しい子供を追加するフォーム */}
       <div className="p-6 bg-white rounded-lg shadow">
         <h3 className="text-xl font-semibold mb-4">新しい子供を追加</h3>
         <form
@@ -142,39 +135,104 @@ export function ChildrenDashboard({ initialChildren }: Props) {
         )}
       </div>
 
-      {/* --- 管理している子供の一覧 --- */}
-      <div className="p-6 bg-white rounded-lg shadow">
-        <h3 className="text-xl font-semibold mb-4">管理している子供の一覧</h3>
-        <div className="space-y-3">
-          {children.length > 0 ? (
-            children.map((child) => (
-              <div
+      {/* タブ形式のダッシュボード */}
+      {children.length > 0 ? (
+        <Tabs defaultValue={children[0].id} className="w-full mt-8">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+            {children.map((child) => (
+              <TabsTrigger
                 key={child.id}
-                className="p-4 bg-gray-50 rounded-md flex justify-between items-center"
+                value={child.id}
+                className="flex items-center gap-2"
               >
-                <div>
-                  <p className="font-medium">{child.nickname}</p>
-                  <p className="text-sm text-gray-500">
-                    登録日: {new Date(child.created_at).toLocaleDateString()}
-                  </p>
-                </div>
+                <span>{child.nickname}</span>
+                {child.dashboardData.alert && (
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {children.map((child) => (
+            <TabsContent
+              key={child.id}
+              value={child.id}
+              className="mt-6 space-y-6"
+            >
+              {/* 各カードの表示ロジックは変更なし */}
+              {child.dashboardData.alert && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>{child.dashboardData.alert.title}</AlertTitle>
+                  <AlertDescription>
+                    {child.dashboardData.alert.description}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <Card className="lg:col-span-1">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <MessageSquare className="w-5 h-5 text-blue-500" />
+                      会話の頻度
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-4xl font-bold">
+                      {child.dashboardData.activity.total / 2}
+                      <span className="text-base font-normal text-gray-500">
+                        {" "}
+                        回
+                      </span>
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      この1週間でお話ししました。
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Smile className="w-5 h-5 text-green-500" />
+                      感情の多様性
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <EmotionChart
+                      data={child.dashboardData.emotionalSpectrum}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Star className="w-5 h-5 text-yellow-500" />
+                    最近の関心ごと
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TopicCloud topics={child.dashboardData.topics} />
+                </CardContent>
+              </Card>
+              <div className="text-center pt-4">
                 <Button
                   variant="secondary"
                   onClick={() => setSelectedChild(child)}
                 >
-                  QRコード表示
+                  {child.nickname}さんのQRコードを表示
                 </Button>
               </div>
-            ))
-          ) : (
-            <p className="p-4 text-center text-gray-500">
-              まだ子供が登録されていません。
-            </p>
-          )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      ) : (
+        <div className="text-center p-10 bg-gray-50 rounded-lg mt-8">
+          <p className="text-gray-500">まだ子供が登録されていません。</p>
         </div>
-      </div>
+      )}
 
-      {/* --- QRコード表示モーダル --- */}
+      {/* QRコード表示モーダル */}
       {selectedChild && (
         <QrCodeModal
           childId={selectedChild.id}

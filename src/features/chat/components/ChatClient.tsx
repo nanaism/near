@@ -47,7 +47,6 @@ export function ChatClient({ session }: Props) {
   >([]); // タップエフェクトのリスト
   const [isSignOutAlertOpen, setIsSignOutAlertOpen] = useState(false); // 警告ダイアログの表示状態
 
-  // ★★★ 競合状態（Race Condition）を防ぐための最重要State ★★★
   // 会話終了処理が進行中であることを示すフラグ。trueの間は他の操作をブロックする。
   const [isEndingCall, setIsEndingCall] = useState(false);
 
@@ -179,7 +178,7 @@ export function ChatClient({ session }: Props) {
   return (
     <main className="w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col bg-slate-50 font-sans">
       <AnimatePresence>
-        {/* ★ isUnlockedがfalseの時（つまりUnlockScreenが表示されている時）にログアウトボタンを追加 */}
+        {/* isUnlockedがfalseの時（つまりUnlockScreenが表示されている時）にログアウトボタンを追加 */}
         {!isUnlocked && (
           <>
             <UnlockScreen onUnlock={handleUnlock} />

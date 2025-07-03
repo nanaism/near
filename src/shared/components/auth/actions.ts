@@ -1,7 +1,7 @@
 "use server";
 
 import { signIn, signOut } from "@/auth";
-import { redirect } from "next/navigation"; // ★ next/navigationからredirectをインポート
+import { redirect } from "next/navigation";
 
 /**
  * Googleでサインインし、ダッシュボードにリダイレクトするServer Action

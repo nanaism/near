@@ -35,7 +35,6 @@ export const VRMCanvas = memo(
     return (
       <Canvas
         shadows
-        // ★★★ 最重要修正点: カメラを初期コードの値に戻す ★★★
         camera={{ position: [0, 1.5, 1.5], fov: 25 }}
         gl={{ antialias: true }}
         dpr={[1, 1.5]}
@@ -77,7 +76,6 @@ export const VRMCanvas = memo(
         </Suspense>
 
         <OrbitControls
-          // ★★★ 最重要修正点: ターゲットを初期コードの値に戻す ★★★
           target={[0, 1.2, 0]}
           enableZoom={false}
           enablePan={false}

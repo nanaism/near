@@ -12,6 +12,14 @@ export type HistoryMessage = {
   parts: { text: string }[];
 };
 
+export type RiskScores = {
+  depression_score: number;
+  anxiety_score: number;
+  self_harm_risk_score: number;
+  isolation_score: number;
+  urgency_score: number;
+};
+
 // --- 初期化 ---
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
@@ -154,4 +162,99 @@ export async function generateSummary(prompt: string): Promise<string> {
     summary = firstCandidate.content.parts[0].text;
   }
   return summary;
+}
+
+/**
+ * 会話文の深刻度を判定するためのリスクスコアを取得する
+ * @param content - 分析対象の会話テキスト
+ * @returns 5つの軸で評価されたリスクスコアのJSONオブジェクト
+ */
+export async function getRiskScores(content: string): Promise<RiskScores> {
+  const riskAnalysisModel = "gemini-2.5-pro";
+
+  const prompt = `あなたは、子供の心理を専門とする臨床心理士です。以下の会話文を分析し、下記のJSON形式でリスクスコアを0.0から1.0の間で評価してください。評価は極めて慎重に行い、深刻な兆候が見られる場合にのみ高いスコアを付けてください。
+
+会話文: "${content}"`;
+
+  const result = await genAI.models.generateContent({
+    model: riskAnalysisModel,
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          depression_score: {
+            type: Type.NUMBER,
+            description: "抑うつ状態や無気力さを示す度合い",
+          },
+          anxiety_score: {
+            type: Type.NUMBER,
+            description: "将来への過度な不安や恐怖を示す度合い",
+          },
+          self_harm_risk_score: {
+            type: Type.NUMBER,
+            description:
+              "自傷行為や希死念慮を示唆するリスクの度合い。これは最も重要で、直接的な言葉がない場合でも文脈から慎重に判断してください。",
+          },
+          isolation_score: {
+            type: Type.NUMBER,
+            description: "社会的孤立や孤独感を示す度合い",
+          },
+          urgency_score: {
+            type: Type.NUMBER,
+            description:
+              "介入の緊急性。今すぐ専門家の助けが必要かどうかの度合い。",
+          },
+        },
+        required: [
+          "depression_score",
+          "anxiety_score",
+          "self_harm_risk_score",
+          "isolation_score",
+          "urgency_score",
+        ],
+      },
+    },
+  });
+
+  const rawResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawResponse) {
+    throw new Error("AIからリスクスコアを取得できませんでした。");
+  }
+
+  return JSON.parse(rawResponse);
+}
+
+/**
+ * 会話文からプライバシーに配慮した関心トピックを抽出する
+ * @param content - 分析対象の会話テキスト
+ * @returns 抽出されたトピックの文字列配列
+ */
+export async function extractTopics(content: string): Promise<string[]> {
+  const topicExtractionModel = "gemini-2.5-pro";
+
+  const prompt = `以下の会話文から、子供が関心を持っている主要なトピックを最大3つ、抽象的なキーワードとして抽出してください。固有名詞（人名、ゲーム名など）は避け、「友達」「ゲーム」「学校」「家族」「将来のこと」「悩み」のような一般的なカテゴリに分類してください。結果はJSONの配列形式で返してください。
+
+会話文: "${content}"`;
+
+  const result = await genAI.models.generateContent({
+    model: topicExtractionModel,
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.STRING,
+        },
+      },
+    },
+  });
+
+  const rawResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawResponse) {
+    return [];
+  }
+  return JSON.parse(rawResponse);
 }
