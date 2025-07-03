@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
+import { Button } from "@/shared/components/ui/button";
 import type { ThreeEvent } from "@react-three/fiber";
 import { AnimatePresence } from "framer-motion";
 import type { Session } from "next-auth";
@@ -34,6 +45,7 @@ export function ChatClient({ session }: Props) {
   const [effects, setEffects] = useState<
     Array<{ id: number; position: THREE.Vector3 }>
   >([]); // タップエフェクトのリスト
+  const [isSignOutAlertOpen, setIsSignOutAlertOpen] = useState(false); // 警告ダイアログの表示状態
 
   // ★★★ 競合状態（Race Condition）を防ぐための最重要State ★★★
   // 会話終了処理が進行中であることを示すフラグ。trueの間は他の操作をブロックする。
@@ -62,6 +74,7 @@ export function ChatClient({ session }: Props) {
     setCurrentEmotion,
     setLiveMessage,
     handleReset,
+    handleSignOut,
   } = useChat(session);
 
   // ----------------------------------------------------------------
@@ -166,7 +179,22 @@ export function ChatClient({ session }: Props) {
   return (
     <main className="w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col bg-slate-50 font-sans">
       <AnimatePresence>
-        {!isUnlocked && <UnlockScreen onUnlock={handleUnlock} />}
+        {/* ★ isUnlockedがfalseの時（つまりUnlockScreenが表示されている時）にログアウトボタンを追加 */}
+        {!isUnlocked && (
+          <>
+            <UnlockScreen onUnlock={handleUnlock} />
+            <div className="absolute bottom-5 right-5 z-50">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50"
+                onClick={() => setIsSignOutAlertOpen(true)}
+              >
+                ログアウト
+              </Button>
+            </div>
+          </>
+        )}
       </AnimatePresence>
 
       {isUnlocked && (
@@ -211,6 +239,31 @@ export function ChatClient({ session }: Props) {
           />
         </div>
       )}
+
+      <AlertDialog
+        open={isSignOutAlertOpen}
+        onOpenChange={setIsSignOutAlertOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>本当にログアウトしますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この操作を行うと、ニアとのおはなしを続けるには、もう一度おうちの人にQRコードを出してもらう必要があります。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {/* 安全な選択肢を目立たせる */}
+            <AlertDialogCancel>やっぱりやめる</AlertDialogCancel>
+            {/* 破壊的な操作であることを示す */}
+            <AlertDialogAction
+              onClick={handleSignOut}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              ログアウトする
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

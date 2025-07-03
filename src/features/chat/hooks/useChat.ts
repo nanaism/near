@@ -4,6 +4,7 @@ import { getConversationsByChildId } from "@/entities/conversation/services/repo
 import { supabase } from "@/shared/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Session } from "next-auth";
+import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { goodbyeMessages, initialDemoMessages } from "../lib/constants";
 import type { Emotion, Message } from "../model/types";
@@ -343,6 +344,18 @@ export function useChat(session: Session) {
     }
   };
 
+  /**
+   * ログアウト処理。セッションを破棄し、ログインページにリダイレクトする。
+   * Auth.jsのsignOutは、セッションクッキーを削除し、指定されたページにリダイレクトしてくれる。
+   */
+  const handleSignOut = async () => {
+    // isDemoフラグはここで直接使わないが、ロジックとしてsignOutを呼び出す
+    await signOut({ callbackUrl: "/login" });
+    // 注意: ローカルストレージに何か保存している場合、ここでクリアする必要があるが、
+    // 現在の設計では、セッション情報はHttpOnlyクッキーに保存されているため、
+    // signOutだけで十分であり、クライアント側での追加のクリアは原則不要。
+  };
+
   // ----------------------------------------------------------------
   // Returned values - UIコンポーネントに渡すための返り値
   // ----------------------------------------------------------------
@@ -366,5 +379,6 @@ export function useChat(session: Session) {
     setLiveMessage,
     createGoodbyeMessage,
     handleReset,
+    handleSignOut,
   };
 }
