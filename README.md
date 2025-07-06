@@ -1,13 +1,17 @@
 # Near (ニア)
 
+<br>
+
 > きみの、いちばん近くに。
+
+<br>
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.x-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind_CSS](https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![shadcn/ui](https://img.shields.io/badge/shadcn/ui-14213d?style=for-the-badge&logo=shadcnui&logoColor=white)](https://ui.shadcn.com/)
-[![Gemini](https://img.shields.io/badge/Google_Gemini-1.5_Pro-8E77EE?style=for-the-badge&logo=googlebard&logoColor=white)](https://gemini.google.com/)
+[![Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Pro-8E77EE?style=for-the-badge&logo=googlebard&logoColor=white)](https://gemini.google.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-3fc87a?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Auth.js](https://img.shields.io/badge/Auth.js-v5-611f72?style=for-the-badge&logo=authdotjs&logoColor=white)](https://authjs.dev/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
