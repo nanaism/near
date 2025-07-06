@@ -26,15 +26,20 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/shared/components/ui/tooltip";
+} from "@/shared/components/ui/tooltip"; // ★★★ Tooltipをインポート ★★★
 import { supabase } from "@/shared/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { AlertTriangle, MessageCircle, QrCode, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  Info,
+  MessageCircle,
+  QrCode,
+  Sparkles,
+} from "lucide-react"; // ★★★ QrCodeをインポート ★★★
 import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { addChildAction } from "../services/children.actions";
-import { MonitoringPulseAlert } from "./MonitoringPulseAlert";
 import { QrCodeModal } from "./QrCodeModal";
 
 // 型定義
@@ -114,7 +119,7 @@ export function ChildrenDashboard({
 
   return (
     <TooltipProvider>
-      {/* 新しい子供を追加するフォーム */}
+      {/* 新しいお子さまを追加するフォーム */}
       <div className="p-6 bg-white rounded-lg shadow">
         <h3 className="text-xl font-semibold mb-4">お子さまを追加</h3>
         <form
@@ -166,7 +171,7 @@ export function ChildrenDashboard({
                         size="icon"
                         className="h-7 w-7 rounded-full hover:bg-black/10"
                         onClick={(e) => {
-                          e.stopPropagation();
+                          e.stopPropagation(); // タブの切り替えを防ぐ
                           setSelectedChild(child);
                         }}
                       >
@@ -188,7 +193,7 @@ export function ChildrenDashboard({
               value={child.id}
               className="mt-6 space-y-6"
             >
-              {/* --- メンタルヘルス・アラート --- */}
+              {/* メンタルヘルス・アラート */}
               {child.dashboardData.alert ? (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
@@ -208,7 +213,15 @@ export function ChildrenDashboard({
                   </AlertDescription>
                 </Alert>
               ) : (
-                <MonitoringPulseAlert />
+                <Alert variant="default" className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-800">
+                    お子さまを見守っています
+                  </AlertTitle>
+                  <AlertDescription className="text-blue-700">
+                    ニアは、お子さまの心の健康を常に見守っています。特に懸念される点が見つかった場合は、この場所でお知らせします。
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* コミュニケーション・ウェザー */}
