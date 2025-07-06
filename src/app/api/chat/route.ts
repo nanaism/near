@@ -88,39 +88,47 @@ export async function POST(req: NextRequest) {
       contents,
       mode
     );
+    // --- 3. 音声生成とDB保存 (並列実行から直列実行へ変更) ---
+    if (childId) {
+      // 先にユーザーのメッセージをDBに保存し、完了を待つ
+      await addConversation({
+        child_id: childId,
+        role: "user",
+        content: message,
+        emotion: null, // ユーザーメッセージに感情はない
+      });
 
-    // --- 3. 音声生成とDB保存 (並列実行) ---
-    // 先にDB保存を開始し、音声生成とエンコードを待つ
-    const dbSavePromises = childId
-      ? [
-          addConversation({
-            child_id: childId,
-            role: "user",
-            content: message,
-            emotion: null,
-          }),
-          addConversation({
-            child_id: childId,
-            role: "ai",
-            content: responseText,
-            emotion: emotion,
-          }),
-        ]
-      : [];
+      // 次にAIの応答をDBに保存する
+      const saveAiConversation = addConversation({
+        child_id: childId,
+        role: "ai",
+        content: responseText,
+        emotion: emotion,
+      });
 
-    const rawAudio = await generateRawAudioData(responseText, mode);
-    const wavAudio = await encodePcmToWav(rawAudio);
+      // AIの音声生成とDB保存は並列でOK
+      const [rawAudio] = await Promise.all([
+        generateRawAudioData(responseText, mode),
+        saveAiConversation, // AI会話の保存処理も待機
+      ]);
+      const wavAudio = await encodePcmToWav(rawAudio);
 
-    // DB保存の完了は待たない
-    Promise.all(dbSavePromises).catch((err) =>
-      console.error("DB insert failed but continuing:", err)
-    );
+      return NextResponse.json({
+        emotion: emotion,
+        textResponse: responseText,
+        audioData: wavAudio,
+      });
+    } else {
+      // デモモードの場合 (DB保存なし)
+      const rawAudio = await generateRawAudioData(responseText, mode);
+      const wavAudio = await encodePcmToWav(rawAudio);
 
-    return NextResponse.json({
-      emotion: emotion,
-      textResponse: responseText,
-      audioData: wavAudio,
-    });
+      return NextResponse.json({
+        emotion: emotion,
+        textResponse: responseText,
+        audioData: wavAudio,
+      });
+    }
   } catch (error) {
     console.error("API Route Error:", error);
     const errorMessage =

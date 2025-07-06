@@ -168,6 +168,34 @@ export function useChat(session: Session) {
     };
   }, [isDemo, userId]);
 
+  // ブラウザ復帰時にAudioContextを再開する
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const context = audioContextRef.current;
+      if (
+        document.visibilityState === "visible" &&
+        context &&
+        context.state === "suspended"
+      ) {
+        context
+          .resume()
+          .catch((e) =>
+            console.error("AudioContext resume failed on visibility change:", e)
+          );
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // iOS Safariはpageshowイベントも使うとより確実
+    window.addEventListener("pageshow", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handleVisibilityChange);
+    };
+  }, []);
+
   // ----------------------------------------------------------------
   // Core Functions - 主要な関数
   // ----------------------------------------------------------------

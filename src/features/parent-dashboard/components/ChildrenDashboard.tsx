@@ -107,9 +107,9 @@ export function ChildrenDashboard({
 
   return (
     <>
-      {/* 新しい子供を追加するフォーム */}
+      {/* お子さまを追加するフォーム */}
       <div className="p-6 bg-white rounded-lg shadow">
-        <h3 className="text-xl font-semibold mb-4">新しい子供を追加</h3>
+        <h3 className="text-xl font-semibold mb-4">お子さまを追加</h3>
         <form
           ref={formRef}
           action={formAction}

@@ -1,15 +1,16 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
-// このレイアウトは、保護者として認証されていることを確認します。
 export default async function ParentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user) {
-    // セッションがない場合は、汎用ログインページにリダイレクト
+
+  // ログイン状態に加え、役割が'parent'であることを確認
+  if (!session?.user || session.user.role !== "parent") {
+    // 保護者でなければ、汎用ログインページにリダイレクト
     redirect("/login");
   }
 

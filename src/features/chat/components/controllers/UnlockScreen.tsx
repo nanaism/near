@@ -4,7 +4,7 @@ import { AppFooter } from "@/shared/components/layout/AppFooter";
 import { motion, Variants } from "framer-motion";
 import { Phone } from "lucide-react";
 
-// アニメーションのバリアント定義 (変更なし)
+// アニメーションのバリアント定義
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
@@ -41,11 +41,21 @@ export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="w-full flex-grow flex flex-col justify-center items-center p-6 text-center"
+        className="w-full flex-grow flex flex-col justify-around items-center p-6 text-center"
       >
-        {/* 不要なmotion.divを削除し、variantsをbuttonに直接適用 */}
+        <motion.div variants={itemVariants} className="mt-12">
+          <h1 className="font-display-cute text-4xl font-bold text-gray-800 tracking-tight">
+            おはなしをはじめる
+          </h1>
+          <p className="font-display-cute text-gray-500 mt-6 text-base leading-relaxed max-w-sm mx-auto">
+            うれしいこと、たのしいこと、かなしいこと。
+            <br />
+            どんなことでもきかせてね。
+          </p>
+        </motion.div>
+
         <motion.button
-          variants={itemVariants} // 親divからここに移動
+          variants={itemVariants}
           onClick={onUnlock}
           className="relative w-36 h-36 rounded-full text-white transition-all duration-300 bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/80"
           animate={{
@@ -69,18 +79,6 @@ export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
             <Phone className="w-16 h-16 drop-shadow-lg" />
           </div>
         </motion.button>
-
-        <motion.div variants={itemVariants} className="mt-12">
-          <h1 className="font-display-cute text-4xl font-bold text-gray-800 tracking-tight">
-            おはなしをはじめる
-          </h1>
-          {/* 文言の間の<br />は不要な場合が多いため削除し、マージンで調整 */}
-          <p className="font-display-cute text-gray-500 mt-6 text-base leading-relaxed max-w-sm mx-auto">
-            うれしいこと、たのしいこと、かなしいこと。
-            <br />
-            どんなことでもきかせてね。
-          </p>
-        </motion.div>
       </motion.div>
 
       <div className="flex-shrink-0 w-full px-6 pb-6">

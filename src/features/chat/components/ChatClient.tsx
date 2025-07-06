@@ -93,7 +93,10 @@ export function ChatClient({ session }: Props) {
    * 最初の「はじめる」ボタンが押された時の処理
    */
   const handleUnlock = () => {
-    setIsEndingCall(false); // 開始時に終了状態をリセット
+    setLiveMessage(null);
+    setCurrentEmotion("neutral");
+    setIsEndingCall(false); // 念のため終了状態もリセット
+
     initializeAudio().then(() => {
       setIsUnlocked(true);
       const firstMessage = messages[0];

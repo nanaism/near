@@ -94,20 +94,39 @@ export const {
         }
       }
 
+      // ★★★ 解決策: プロバイダーに応じて役割を付与 ★★★
+      if (account?.provider === "google") {
+        user.role = "parent";
+      } else if (account?.provider === "qr-login") {
+        user.role = "child";
+      } else if (account?.provider === "credentials") {
+        // デモユーザーも子供扱い
+        user.role = "child";
+      }
+
       // 'google'プロバイダーで上記処理が成功した場合、
       // または、'credentials'や'qr-login'など他のプロバイダーの場合は、
       // そのまま認証プロセスを続行する。
       return true;
     },
+
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
+        if (user.role) {
+          token.role = user.role; // ★ JWTに役割を渡す
+        }
       }
       return token;
     },
+
     async session({ session, token }) {
       if (token.sub) {
         session.user.id = token.sub;
+      }
+      if (token.role) {
+        // ★ セッションに役割を渡す
+        session.user.role = token.role as "parent" | "child";
       }
       return session;
     },
