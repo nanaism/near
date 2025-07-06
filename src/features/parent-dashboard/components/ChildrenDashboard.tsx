@@ -1,5 +1,3 @@
-// src/features/parent-dashboard/components/ChildrenDashboard.tsx
-
 "use client";
 
 import type { Child } from "@/entities/child/model/types";
@@ -25,12 +23,7 @@ import {
 } from "@/shared/components/ui/tabs";
 import { supabase } from "@/shared/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import {
-  AlertTriangle,
-  BarChart,
-  Smile,
-  Info,
-} from "lucide-react";
+import { AlertTriangle, BarChart, Info, Smile } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -112,9 +105,9 @@ export function ChildrenDashboard({
 
   return (
     <>
-      {/* 新しい子供を追加するフォーム */}
+      {/* お子さまを追加するフォーム */}
       <div className="p-6 bg-white rounded-lg shadow">
-        <h3 className="text-xl font-semibold mb-4">新しい子供を追加</h3>
+        <h3 className="text-xl font-semibold mb-4">お子さまを追加</h3>
         <form
           ref={formRef}
           action={formAction}
@@ -184,10 +177,7 @@ export function ChildrenDashboard({
                   </AlertDescription>
                 </Alert>
               ) : (
-                <Alert
-                  variant="default"
-                  className="bg-blue-50 border-blue-200"
-                >
+                <Alert variant="default" className="bg-blue-50 border-blue-200">
                   <Info className="h-4 w-4 text-blue-600" />
                   <AlertTitle className="text-blue-800">
                     お子様を見守っています
