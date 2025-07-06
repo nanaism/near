@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind_CSS](https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![shadcn/ui](https://img.shields.io/badge/shadcn/ui-14213d?style=for-the-badge&logo=shadcnui&logoColor=white)](https://ui.shadcn.com/)
-[![Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Pro-8E77EE?style=for-the-badge&logo=googlebard&logoColor=white)](https://gemini.google.com/)
+[![Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Pro_preview_tts-8E77EE?style=for-the-badge&logo=googlebard&logoColor=white)](https://gemini.google.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-3fc87a?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Auth.js](https://img.shields.io/badge/Auth.js-v5-611f72?style=for-the-badge&logo=authdotjs&logoColor=white)](https://authjs.dev/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
@@ -39,13 +39,17 @@
 
 ---
 
-## 💎 設計思想 - 「監視」ではなく「見守り」
+## 💎 「監視」ではなく「見守り」
 
-このアプリの根幹をなすのは、**「子供のプライバシーを守りつつ、保護者に安心を届ける」** という、繊細で、しかし最も重要な価値観です。
+このアプリの根幹をなすのは、**「子供のプライバシーを守りつつ、保護者に安心を届ける」** という、繊細で、重要な価値観です。
 
-具体的な会話内容を見せるのは論外です。単なる「ネガティブ発言の回数」のような直接的な指標ですら、かえって保護者の不安を煽り、子供を詮索するきっかけになりかねません。
+具体的な会話内容を見せるのは論外です。
 
-ニアが目指すのは、**保護者に「何かあったのかな？」と対話のきっかけを与え、詮索ではなく、親子のコミュニケーションを促すこと**です。そのため、保護者向けダッシュボードでは、あえて具体的な情報を徹底的に排除し、子供の「状態の変化」を示唆する、客観的で解釈の余地のあるデータのみを提示します。
+単なる「ネガティブ発言の回数」のような直接的な指標ですら、かえって保護者の不安を煽り、子供を詮索するきっかけになりかねません。
+
+ニアが目指すのは、**保護者に「何かあったのかな？」と対話のきっかけを与え、詮索ではなく、親子のコミュニケーションを促すこと**です。
+
+そのため、保護者向けダッシュボードでは、あえて具体的な情報を徹底的に排除し、子供の「状態の変化」を示唆する、客観的で解釈の余地のあるデータのみを提示します。
 
 | 見せるもの | 見せないもの |
 | :--- | :--- |
@@ -58,7 +62,7 @@
 ## ✨ 主な機能 (Features)
 
 *   **💬 リアルタイムAIチャット**
-    *   **Gemini 1.5 Flash/Pro** を活用し、ユーザーのメッセージに対して状況に応じた自然で共感的な応答を生成します。
+    *   **Gemini 2.5 Flash/Pro** を活用し、ユーザーのメッセージに対して状況に応じた自然で共感的な応答を生成します。
 
 *   **💃 表現力豊かな3Dインタラクション**
     *   `@pixiv/three-vrm` を活用し、会話の内容や感情に合わせて表情、まばたき、呼吸、体の動きをリアルタイムに制御。
@@ -78,8 +82,8 @@
     *   会話が保存されると、`Supabase Trigger`が非同期タスクキューにリクエストを追加。
     *   `pg_cron`が定期的に`Supabase Edge Function`を呼び出し、キューを処理。
     *   **マルチステップLLM判定システム**:
-        1.  **初期フィルタリング**: `Gemini 1.5 Flash`で明らかに無害な会話を高速かつ安価に除外。
-        2.  **リスクスコアリング**: フィルタリングを通過した会話のみを`Gemini 1.5 Pro`で多角的に分析し、深刻なリスクを検知します。
+        1.  **初期フィルタリング**: `Gemini 2.5 Flash`で明らかに無害な会話を高速かつ安価に除外。
+        2.  **リスクスコアリング**: フィルタリングを通過した会話のみを`Gemini 2.5 Pro`で多角的に分析し、深刻なリスクを検知します。
 
 ---
 
@@ -103,25 +107,25 @@
 
 ```mermaid
 graph TD
-    subgraph Frontend (Next.js on Vercel)
-        A[User] -- 1. Chat --> B(Chat UI);
-        B -- 2. POST /api/chat --> C[Chat API];
+    subgraph "Frontend (Next.js on Vercel)"
+        A[User] -- "1. Chat" --> B(Chat UI);
+        B -- "2. POST /api/chat" --> C["Chat API"];
     end
 
-    subgraph Backend (Supabase)
-        D[DB: conversations] -- 4. Trigger --> E[DB: analysis_queue];
-        F[pg_cron] -- 5. Every 1 min --> G[Edge Function: process-queue];
+    subgraph "Backend (Supabase)"
+        D["DB: conversations"] -- "4. Trigger" --> E["DB: analysis_queue"];
+        F["pg_cron"] -- "5. Every 1 min" --> G["Edge Function: process-queue"];
     end
     
-    subgraph Analysis API (Next.js on Vercel)
-        H[/api/analyze] -- 8. Risk Scoring --> I[Gemini 1.5 Pro];
+    subgraph "Analysis API (Next.js on Vercel)"
+        H["/api/analyze"] -- "8. Risk Scoring" --> I["Gemini 2.5 Pro"];
     end
 
-    C -- 3. INSERT --> D;
-    G -- 6. Fetch Task --> E;
-    G -- 7. POST /api/analyze --> H;
-    I -- 9. Return Scores --> H;
-    H -- 10. INSERT --> J[DB: mental_health_scores];
+    C -- "3. INSERT" --> D;
+    G -- "6. Fetch Task" --> E;
+    G -- "7. POST /api/analyze" --> H;
+    I -- "9. Return Scores" --> H;
+    H -- "10. INSERT" --> J["DB: mental_health_scores"];
 
     style A fill:#f9f,stroke:#333,stroke-width:2px
     style D fill:#3fc87a,stroke:#333,stroke-width:2px
