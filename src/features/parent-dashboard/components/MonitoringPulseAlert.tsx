@@ -35,10 +35,10 @@ export function MonitoringPulseAlert() {
         <Info className="h-5 w-5 flex-shrink-0 text-blue-600" />
         <div className="flex-1">
           <AlertTitle className="mb-1 text-blue-800">
-            お子様を見守っています
+            お子さまを見守っています
           </AlertTitle>
-          <AlertDescription className="text-blue-700">
-            ニアは、お子様の心の健康を常に見守っています。特に懸念される点が見つかった場合は、この場所でお知らせします。
+          <AlertDescription className="text-blue-700 leading-relaxed break-words">
+            ニアは、お子さまの心の健康を常に見守っています。特に懸念される点が見つかった場合は、この場所でお知らせします。
           </AlertDescription>
         </div>
       </div>
