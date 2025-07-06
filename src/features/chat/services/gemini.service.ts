@@ -227,34 +227,39 @@ export async function getRiskScores(content: string): Promise<RiskScores> {
 }
 
 /**
- * 会話文からプライバシーに配慮した関心トピックを抽出する
+ * 【ステップ1：初期フィルタリング】
+ * 会話が分析する価値のあるリスクを含んでいるか高速に判定する
  * @param content - 分析対象の会話テキスト
- * @returns 抽出されたトピックの文字列配列
+ * @returns リスクを含む可能性がある場合はtrue、そうでない場合はfalse
  */
-export async function extractTopics(content: string): Promise<string[]> {
-  const topicExtractionModel = "gemini-2.5-pro";
-
-  const prompt = `以下の会話文から、子供が関心を持っている主要なトピックを最大3つ、抽象的なキーワードとして抽出してください。固有名詞（人名、ゲーム名など）は避け、「友達」「ゲーム」「学校」「家族」「将来のこと」「悩み」のような一般的なカテゴリに分類してください。結果はJSONの配列形式で返してください。
+export async function isRiskyContent(content: string): Promise<boolean> {
+  try {
+    const filterModel = "gemini-2.5-flash";
+    const prompt = `以下の会話文は、子供のメンタルヘルスに関して、緊急性または深刻なリスクを示唆する内容を含んでいますか？ "YES" または "NO" のみで回答してください。
 
 会話文: "${content}"`;
 
-  const result = await genAI.models.generateContent({
-    model: topicExtractionModel,
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.STRING,
-        },
-      },
-    },
-  });
+    const result = await genAI.models.generateContent({
+      model: filterModel,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+    // 明示的で安全な型ガード
+    let responseText = "";
+    const firstCandidate = result.candidates?.[0];
 
-  const rawResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawResponse) {
-    return [];
+    if (
+      firstCandidate &&
+      firstCandidate.content &&
+      Array.isArray(firstCandidate.content.parts) &&
+      firstCandidate.content.parts.length > 0 &&
+      firstCandidate.content.parts[0].text
+    ) {
+      // すべてのプロパティが存在することをチェックしてから代入
+      responseText = firstCandidate.content.parts[0].text;
+    }
+    return responseText.trim().toUpperCase() === "YES";
+  } catch (error) {
+    console.error("Risk filtering failed:", error);
+    return false; // 安全側に倒し、エラー時は分析しない
   }
-  return JSON.parse(rawResponse);
 }

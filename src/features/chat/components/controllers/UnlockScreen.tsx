@@ -2,7 +2,7 @@
 
 import { AppFooter } from "@/shared/components/layout/AppFooter";
 import { motion, Variants } from "framer-motion";
-import { Phone } from "lucide-react";
+import { Phone } from "lucide-react"; // Loader2をインポート
 
 // アニメーションのバリアント定義
 const containerVariants: Variants = {
@@ -33,7 +33,13 @@ const itemVariants: Variants = {
   },
 };
 
-export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
+export const UnlockScreen = ({
+  onUnlock,
+  isReady,
+}: {
+  onUnlock: () => void;
+  isReady: boolean;
+}) => {
   return (
     <div className="relative w-full h-full flex flex-col z-50 animated-unlock-gradient">
       <motion.div
@@ -45,7 +51,7 @@ export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
       >
         <motion.div variants={itemVariants} className="mt-12">
           <h1 className="font-display-cute text-4xl font-bold text-gray-800 tracking-tight">
-            おはなしをはじめる
+            {isReady ? "おはなしをはじめる" : "ニアをよんでるよ..."}
           </h1>
           <p className="font-display-cute text-gray-500 mt-6 text-base leading-relaxed max-w-sm mx-auto">
             うれしいこと、たのしいこと、かなしいこと。
@@ -57,6 +63,7 @@ export const UnlockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
         <motion.button
           variants={itemVariants}
           onClick={onUnlock}
+          disabled={!isReady}
           className="relative w-36 h-36 rounded-full text-white transition-all duration-300 bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/80"
           animate={{
             boxShadow: [

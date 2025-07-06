@@ -58,6 +58,7 @@ export function ChatClient({ session }: Props) {
   // ----------------------------------------------------------------
 
   const {
+    isChatReady,
     messages,
     isLoading,
     isSpeaking,
@@ -184,7 +185,7 @@ export function ChatClient({ session }: Props) {
         {/* isUnlockedがfalseの時（つまりUnlockScreenが表示されている時）にログアウトボタンを追加 */}
         {!isUnlocked && (
           <>
-            <UnlockScreen onUnlock={handleUnlock} />
+            <UnlockScreen onUnlock={handleUnlock} isReady={isChatReady} />
             <div className="absolute bottom-5 right-5 z-50">
               <Button
                 variant="ghost"

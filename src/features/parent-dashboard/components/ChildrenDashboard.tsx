@@ -1,3 +1,5 @@
+// src/features/parent-dashboard/components/ChildrenDashboard.tsx
+
 "use client";
 
 import type { Child } from "@/entities/child/model/types";
@@ -23,13 +25,17 @@ import {
 } from "@/shared/components/ui/tabs";
 import { supabase } from "@/shared/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { AlertTriangle, MessageSquare, Smile, Star } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart,
+  Smile,
+  Info,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { addChildAction } from "../services/children.actions";
 import { EmotionChart } from "./charts/EmotionChart";
-import { TopicCloud } from "./charts/TopicCloud";
 import { QrCodeModal } from "./QrCodeModal";
 
 // 型定義
@@ -70,9 +76,8 @@ export function ChildrenDashboard({
       const newChild: ChildWithDashboardData = {
         ...(formState.data as Child),
         dashboardData: {
-          activity: { total: 0 },
+          activity: { count: 0, changeText: "" },
           emotionalSpectrum: { positive: 0, negative: 0, neutral: 0 },
-          topics: [],
           alert: null,
         },
       };
@@ -107,9 +112,9 @@ export function ChildrenDashboard({
 
   return (
     <>
-      {/* お子さまを追加するフォーム */}
+      {/* 新しい子供を追加するフォーム */}
       <div className="p-6 bg-white rounded-lg shadow">
-        <h3 className="text-xl font-semibold mb-4">お子さまを追加</h3>
+        <h3 className="text-xl font-semibold mb-4">新しい子供を追加</h3>
         <form
           ref={formRef}
           action={formAction}
@@ -159,27 +164,53 @@ export function ChildrenDashboard({
               value={child.id}
               className="mt-6 space-y-6"
             >
-              {/* 各カードの表示ロジックは変更なし */}
-              {child.dashboardData.alert && (
+              {/* --- メンタルヘルス・アラート --- */}
+              {child.dashboardData.alert ? (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>{child.dashboardData.alert.title}</AlertTitle>
                   <AlertDescription>
                     {child.dashboardData.alert.description}
+                    {child.dashboardData.alert.link && (
+                      <a
+                        href={child.dashboardData.alert.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block mt-2 font-bold text-red-700 hover:underline"
+                      >
+                        {child.dashboardData.alert.linkText}
+                      </a>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert
+                  variant="default"
+                  className="bg-blue-50 border-blue-200"
+                >
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-800">
+                    お子様を見守っています
+                  </AlertTitle>
+                  <AlertDescription className="text-blue-700">
+                    ニアは、お子様の心の健康を常に見守っています。特に懸念される点が見つかった場合は、この場所でお知らせします。
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="lg:col-span-1">
+
+              {/* --- コミュニケーション・バイタル --- */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* 会話の頻度カード */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <MessageSquare className="w-5 h-5 text-blue-500" />
+                      <BarChart className="w-5 h-5 text-blue-500" />
                       会話の頻度
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-4xl font-bold">
-                      {child.dashboardData.activity.total / 2}
+                      {Math.round(child.dashboardData.activity.count)}
                       <span className="text-base font-normal text-gray-500">
                         {" "}
                         回
@@ -188,33 +219,32 @@ export function ChildrenDashboard({
                     <p className="text-sm text-gray-500 mt-1">
                       この1週間でお話ししました。
                     </p>
+                    <p className="text-sm text-blue-600 font-medium mt-3 pt-3 border-t">
+                      {child.dashboardData.activity.changeText}
+                    </p>
                   </CardContent>
                 </Card>
-                <Card className="lg:col-span-2">
+
+                {/* 感情の多様性カード */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Smile className="w-5 h-5 text-green-500" />
-                      感情の多様性
+                      感情の表現
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <EmotionChart
                       data={child.dashboardData.emotionalSpectrum}
                     />
+                    <p className="text-sm text-green-600 font-medium mt-3 pt-3 border-t">
+                      今週は、いろいろな気持ちをニアに話してくれているようです。
+                    </p>
                   </CardContent>
                 </Card>
               </div>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Star className="w-5 h-5 text-yellow-500" />
-                    最近の関心ごと
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <TopicCloud topics={child.dashboardData.topics} />
-                </CardContent>
-              </Card>
+
+              {/* QRコード表示ボタン */}
               <div className="text-center pt-4">
                 <Button
                   variant="secondary"

@@ -57,7 +57,9 @@ export function useChat(session: Session) {
   const [liveMessage, setLiveMessage] = useState<Message | null>(null); // AIが話している最中のメッセージ
   const [isSpeaking, setIsSpeaking] = useState(false); // 音声が再生中かを示すフラグ
   const [currentEmotion, setCurrentEmotion] = useState<Emotion>("neutral"); // VRMモデルの現在の感情
-  const [thinkMode, setThinkMode] = useState<"fast" | "slow">("slow"); // AIの思考モード
+  const [thinkMode, setThinkMode] = useState<"fast" | "slow">("fast"); // AIの思考モード
+
+  const [isChatReady, setIsChatReady] = useState(false); // チャットが初期化され、音声再生の準備ができているかを示すフラグ
 
   const audioContextRef = useRef<AudioContext | null>(null); // Web Audio APIのコンテキスト
   const analyserRef = useRef<AnalyserNode | null>(null); // 口パク用の音声分析ノード
@@ -111,6 +113,9 @@ export function useChat(session: Session) {
           setMessages([createInitialMessage()]);
         }
       }
+
+      // 3. 音声再生の初期化を行う
+      setIsChatReady(true);
     };
 
     initializeMessages();
@@ -390,6 +395,7 @@ export function useChat(session: Session) {
 
   return {
     // 状態
+    isChatReady,
     messages,
     isLoading,
     isSpeaking,
