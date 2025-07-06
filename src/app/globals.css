@@ -120,3 +120,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  @keyframes radar-pulse {
+    from {
+      transform: scale(0.6);
+      opacity: 0.8;
+    }
+    to {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+}

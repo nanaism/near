@@ -2,84 +2,152 @@
 
 import { createSupabaseAdminClient } from "@/shared/lib/supabase/client";
 
-// 日付のヘルパー関数
+type WeatherReport = {
+  icon: "☀️" | "🌤️" | "😌" | "☁️";
+  text: string;
+};
+
+type ConversationStarter = {
+  text: string;
+} | null;
+
+// alertの型を独立させる
+type AlertData = {
+  title: string;
+  description: string;
+  link: string;
+  linkText: string;
+} | null;
+
+// 新しいDashboardDataの型定義
+export type DashboardData = {
+  weatherReport: WeatherReport;
+  conversationStarter: ConversationStarter;
+  alert: AlertData;
+};
+
+// --- ヘルパー関数 ---
 const getISODateDaysAgo = (days: number) => {
   const date = new Date();
   date.setDate(date.getDate() - days);
   return date.toISOString();
 };
 
-/**
- * ダッシュボードに必要なすべてのデータを取得・整形する関数
- * @param childId - データを取得する子供のID
- * @returns 整形済みのダッシュボードデータ
- */
-export async function getDashboardData(childId: string) {
+// --- メイン関数  ---
+export async function getDashboardData(
+  childId: string
+): Promise<DashboardData> {
   const supabaseAdmin = createSupabaseAdminClient();
   const sevenDaysAgo = getISODateDaysAgo(7);
   const fourteenDaysAgo = getISODateDaysAgo(14);
 
-  // 1. 会話データを過去14日分取得（今週と先週を比較するため）
-  const { data: activityData, error: activityError } = await supabaseAdmin
-    .from("conversations")
-    .select("created_at, emotion")
-    .eq("child_id", childId)
-    .gte("created_at", fourteenDaysAgo);
+  // 1. 過去14日分の会話データと、最新のトピック、アラート状況を並行して取得
+  const [activityResult, topicResult, alertResult] = await Promise.all([
+    supabaseAdmin
+      .from("conversations")
+      .select("created_at, emotion")
+      .eq("child_id", childId)
+      .gte("created_at", fourteenDaysAgo),
+    supabaseAdmin
+      .from("child_topic_trends")
+      .select("topic")
+      .eq("child_id", childId)
+      .order("last_mentioned_at", { ascending: false })
+      .limit(1)
+      .single(),
+    supabaseAdmin
+      .from("mental_health_scores")
+      .select("scores, analyzed_at")
+      .eq("child_id", childId)
+      .eq("is_alert_triggered", true)
+      .order("analyzed_at", { ascending: false })
+      .limit(1)
+      .single(),
+  ]);
 
-  // 2. 最新のアラート状況を取得
-  // (要件定義に基づき、アラートは特別なテーブルで管理されている想定)
-  const { data: latestAlert, error: alertError } = await supabaseAdmin
-    .from("mental_health_scores") // このテーブルは既に存在
-    .select("scores, analyzed_at")
-    .eq("child_id", childId)
-    .eq("is_alert_triggered", true) // is_alert_triggeredがtrueのものだけ取得
-    .order("analyzed_at", { ascending: false })
-    .limit(1)
-    .single();
+  const { data: activityData, error: activityError } = activityResult;
+  if (activityError) throw new Error("Failed to fetch activity data.");
 
-  if (activityError || (alertError && alertError.code !== "PGRST116")) {
-    console.error({ activityError, alertError });
-    throw new Error("Failed to fetch dashboard data.");
-  }
-
-  // --- ここからデータをUIで使いやすい形に整形 ---
-
-  // 3. 会話頻度を計算
+  // --- 2. 天気予報の指標を計算 ---
   const thisWeekConversations =
-    activityData?.filter((a) => a.created_at >= sevenDaysAgo).length || 0;
+    activityData?.filter((a) => a.created_at >= sevenDaysAgo) || [];
   const lastWeekConversations =
-    activityData?.filter((a) => a.created_at < sevenDaysAgo).length || 0;
-  const conversationCount = thisWeekConversations / 2; // userとaiのペアで1回とカウント
+    activityData?.filter((a) => a.created_at < sevenDaysAgo) || [];
 
-  let frequencyChangeText = "最近ニアとのお話を始めたばかりです。";
-  if (lastWeekConversations > 0) {
-    const changeRatio = thisWeekConversations / lastWeekConversations;
-    if (changeRatio > 1.2) {
-      frequencyChangeText = "先週と比べて、ニアと話す回数が少し増えました。";
-    } else if (changeRatio < 0.8) {
-      frequencyChangeText =
-        "先週と比べて、ニアと話す回数は少し落ち着いています。";
-    } else {
-      frequencyChangeText =
-        "先週と同じくらいのペースで、ニアとお話ししています。";
-    }
+  const activityRatio =
+    lastWeekConversations.length > 0
+      ? thisWeekConversations.length / lastWeekConversations.length
+      : thisWeekConversations.length > 0
+      ? 2
+      : 1;
+  let activityLevel: "high" | "normal" | "low" = "normal";
+  if (activityRatio > 1.3) activityLevel = "high";
+  if (activityRatio < 0.7) activityLevel = "low";
+
+  const uniqueEmotions = new Set(
+    thisWeekConversations.map((c) => c.emotion).filter(Boolean)
+  );
+  const emotionalVariety: "high" | "normal" | "low" =
+    uniqueEmotions.size >= 3
+      ? "high"
+      : uniqueEmotions.size >= 2
+      ? "normal"
+      : "low";
+
+  const activeDays = new Set(
+    thisWeekConversations.map((c) => new Date(c.created_at).getDay())
+  ).size;
+  const consistency: "high" | "low" = activeDays >= 3 ? "high" : "low";
+
+  // --- 3. 天気予報のテキストとアイコンを決定 ---
+  let weatherReport: WeatherReport;
+  if (activityLevel === "high" && emotionalVariety === "high") {
+    weatherReport = {
+      icon: "☀️",
+      text: "今週は、ニアといろいろなことをたくさんお話しして、心も晴れやかな一週間だったようです。",
+    };
+  } else if (emotionalVariety === "high") {
+    weatherReport = {
+      icon: "🌤️",
+      text: "嬉しい気持ちも、少し考え込むような気持ちも。様々な感情をニアに話してくれているようです。心を豊かに表現できていますね。",
+    };
+  } else if (activityLevel === "low" || consistency === "low") {
+    weatherReport = {
+      icon: "☁️",
+      text: "今週は、少し口数が少なめだったようです。何かに集中しているのかもしれないし、少し一人の時間が必要なのかもしれませんね。",
+    };
+  } else {
+    weatherReport = {
+      icon: "😌",
+      text: "今週は、いつもと同じくらいのペースで、穏やかにニアとの対話を楽しんでいるようです。",
+    };
   }
 
-  // 4. 感情の多様性を計算 (今週のデータのみ対象)
-  const positiveEmotions = ["happy", "joy"]; // 必要に応じて拡張
-  const negativeEmotions = ["sad", "angry", "sorrow"];
-  const emotionalSpectrum = { positive: 0, negative: 0, neutral: 0 };
-  activityData?.forEach((item) => {
-    if (item.created_at >= sevenDaysAgo && item.emotion) {
-      if (positiveEmotions.includes(item.emotion)) emotionalSpectrum.positive++;
-      else if (negativeEmotions.includes(item.emotion))
-        emotionalSpectrum.negative++;
-      else emotionalSpectrum.neutral++;
-    }
-  });
+  // --- 4. 対話のヒントを生成 ---
+  let conversationStarter: ConversationStarter = null;
+  const topic = topicResult.data?.topic;
+  if (topic) {
+    let genericTopic = "こと";
+    if (
+      ["ゲーム", "遊び", "アニメ", "マンガ", "動画"].some((t) =>
+        topic.includes(t)
+      )
+    )
+      genericTopic = "好きな遊び";
+    else if (
+      ["学校", "勉強", "宿題", "友達", "先生"].some((t) => topic.includes(t))
+    )
+      genericTopic = "学校のこと";
+    else if (["夢", "将来", "大人"].some((t) => topic.includes(t)))
+      genericTopic = "将来のこと";
 
-  // 5. メンタルヘルス・アラートの整形
-  const alert = latestAlert
+    conversationStarter = {
+      text: `対話のヒント：最近、**${genericTopic}**に関心があるようです。どんなことを考えているのか、聞いてみるのもいいかもしれませんね。`,
+    };
+  }
+
+  // --- 5. メンタルヘルスアラートを整形 ---
+  const alert: AlertData = alertResult.data
     ? {
         title: "大切なお知らせ",
         description:
@@ -89,14 +157,5 @@ export async function getDashboardData(childId: string) {
       }
     : null;
 
-  return {
-    activity: {
-      count: conversationCount, // 今週の会話回数
-      changeText: frequencyChangeText,
-    },
-    emotionalSpectrum,
-    alert,
-  };
+  return { weatherReport, conversationStarter, alert };
 }
-
-export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;

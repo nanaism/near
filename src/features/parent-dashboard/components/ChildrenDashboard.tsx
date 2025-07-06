@@ -21,14 +21,20 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import { supabase } from "@/shared/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { AlertTriangle, BarChart, Info, Smile } from "lucide-react";
+import { AlertTriangle, MessageCircle, QrCode, Sparkles } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { addChildAction } from "../services/children.actions";
-import { EmotionChart } from "./charts/EmotionChart";
+import { MonitoringPulseAlert } from "./MonitoringPulseAlert";
 import { QrCodeModal } from "./QrCodeModal";
 
 // 型定義
@@ -69,8 +75,11 @@ export function ChildrenDashboard({
       const newChild: ChildWithDashboardData = {
         ...(formState.data as Child),
         dashboardData: {
-          activity: { count: 0, changeText: "" },
-          emotionalSpectrum: { positive: 0, negative: 0, neutral: 0 },
+          weatherReport: {
+            icon: "😌",
+            text: "ニアとの対話を始めたばかりです。",
+          },
+          conversationStarter: null,
           alert: null,
         },
       };
@@ -104,8 +113,8 @@ export function ChildrenDashboard({
   }, [status, userId]);
 
   return (
-    <>
-      {/* お子さまを追加するフォーム */}
+    <TooltipProvider>
+      {/* 新しい子供を追加するフォーム */}
       <div className="p-6 bg-white rounded-lg shadow">
         <h3 className="text-xl font-semibold mb-4">お子さまを追加</h3>
         <form
@@ -116,7 +125,7 @@ export function ChildrenDashboard({
           <Input
             type="text"
             name="nickname"
-            placeholder="子供のニックネーム"
+            placeholder="お子さまのニックネーム"
             className="flex-1"
             required
           />
@@ -141,12 +150,34 @@ export function ChildrenDashboard({
               <TabsTrigger
                 key={child.id}
                 value={child.id}
-                className="flex items-center gap-2"
+                className="relative !p-0"
               >
-                <span>{child.nickname}</span>
-                {child.dashboardData.alert && (
-                  <AlertTriangle className="w-4 h-4 text-red-500" />
-                )}
+                <div className="flex items-center justify-between w-full h-full px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <span>{child.nickname}</span>
+                    {child.dashboardData.alert && (
+                      <AlertTriangle className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-full hover:bg-black/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedChild(child);
+                        }}
+                      >
+                        <QrCode className="w-4 h-4 text-gray-500" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{child.nickname}さんのQRコードを表示</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -177,78 +208,52 @@ export function ChildrenDashboard({
                   </AlertDescription>
                 </Alert>
               ) : (
-                <Alert variant="default" className="bg-blue-50 border-blue-200">
-                  <Info className="h-4 w-4 text-blue-600" />
-                  <AlertTitle className="text-blue-800">
-                    お子様を見守っています
-                  </AlertTitle>
-                  <AlertDescription className="text-blue-700">
-                    ニアは、お子様の心の健康を常に見守っています。特に懸念される点が見つかった場合は、この場所でお知らせします。
-                  </AlertDescription>
-                </Alert>
+                <MonitoringPulseAlert />
               )}
 
-              {/* --- コミュニケーション・バイタル --- */}
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* 会話の頻度カード */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <BarChart className="w-5 h-5 text-blue-500" />
-                      会話の頻度
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-4xl font-bold">
-                      {Math.round(child.dashboardData.activity.count)}
-                      <span className="text-base font-normal text-gray-500">
-                        {" "}
-                        回
-                      </span>
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      この1週間でお話ししました。
-                    </p>
-                    <p className="text-sm text-blue-600 font-medium mt-3 pt-3 border-t">
-                      {child.dashboardData.activity.changeText}
-                    </p>
-                  </CardContent>
-                </Card>
+              {/* コミュニケーション・ウェザー */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <MessageCircle className="w-5 h-5 text-indigo-500" />
+                    今週のコミュニケーションの様子
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center gap-4 text-base">
+                  <div className="text-5xl">
+                    {child.dashboardData.weatherReport.icon}
+                  </div>
+                  <p className="text-gray-700 leading-relaxed">
+                    {child.dashboardData.weatherReport.text}
+                  </p>
+                </CardContent>
+              </Card>
 
-                {/* 感情の多様性カード */}
-                <Card>
+              {/* 対話のきっかけ */}
+              {child.dashboardData.conversationStarter && (
+                <Card className="bg-green-50 border-green-200">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Smile className="w-5 h-5 text-green-500" />
-                      感情の表現
+                    <CardTitle className="flex items-center gap-2 text-lg text-green-800">
+                      <Sparkles className="w-5 h-5 text-green-600" />
+                      対話のきっかけ
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <EmotionChart
-                      data={child.dashboardData.emotionalSpectrum}
+                    <p
+                      className="text-green-900"
+                      dangerouslySetInnerHTML={{
+                        __html: child.dashboardData.conversationStarter.text,
+                      }}
                     />
-                    <p className="text-sm text-green-600 font-medium mt-3 pt-3 border-t">
-                      今週は、いろいろな気持ちをニアに話してくれているようです。
-                    </p>
                   </CardContent>
                 </Card>
-              </div>
-
-              {/* QRコード表示ボタン */}
-              <div className="text-center pt-4">
-                <Button
-                  variant="secondary"
-                  onClick={() => setSelectedChild(child)}
-                >
-                  {child.nickname}さんのQRコードを表示
-                </Button>
-              </div>
+              )}
             </TabsContent>
           ))}
         </Tabs>
       ) : (
         <div className="text-center p-10 bg-gray-50 rounded-lg mt-8">
-          <p className="text-gray-500">まだ子供が登録されていません。</p>
+          <p className="text-gray-500">まだお子さまが登録されていません。</p>
         </div>
       )}
 
@@ -260,6 +265,6 @@ export function ChildrenDashboard({
           onClose={() => setSelectedChild(null)}
         />
       )}
-    </>
+    </TooltipProvider>
   );
 }

@@ -94,7 +94,7 @@ export const {
         }
       }
 
-      // ★★★ 解決策: プロバイダーに応じて役割を付与 ★★★
+      // 解決策: プロバイダーに応じて役割を付与
       if (account?.provider === "google") {
         user.role = "parent";
       } else if (account?.provider === "qr-login") {
@@ -114,7 +114,7 @@ export const {
       if (user) {
         token.sub = user.id;
         if (user.role) {
-          token.role = user.role; // ★ JWTに役割を渡す
+          token.role = user.role; // JWTに役割を渡す
         }
       }
       return token;
@@ -125,7 +125,7 @@ export const {
         session.user.id = token.sub;
       }
       if (token.role) {
-        // ★ セッションに役割を渡す
+        // セッションに役割を渡す
         session.user.role = token.role as "parent" | "child";
       }
       return session;
