@@ -34,7 +34,7 @@
 
 ## 🖼️ スクリーンショット (Screenshot)
 
-![image](https://github.com/user-attachments/assets/6120e80c-2076-4cdb-b65d-b15f5bd9d130)
+![image](https://github.com/user-attachments/assets/b85d3c38-91be-4211-b89b-ee25a5e176a1)
 
 
 ---
