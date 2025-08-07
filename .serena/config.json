@@ -1,0 +1,7 @@
+{
+  "memory": {
+    "cache_duration": "24h",
+    "max_memory_usage": "500MB",
+    "cleanup_threshold": 0.8
+  }
+}

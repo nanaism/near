@@ -2,8 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "mcp__ide__executeCode"
     ],
     "deny": []
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "enableAllProjectMcpServers": true
 }
