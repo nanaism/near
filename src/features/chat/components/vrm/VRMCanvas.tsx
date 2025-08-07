@@ -20,6 +20,7 @@ type Props = {
   onHeadClick: (event: ThreeEvent<MouseEvent>) => void;
   effects: Array<{ id: number; position: THREE.Vector3 }>;
   onEffectComplete: (id: number) => void;
+  onVRMLoaded?: () => void;
 };
 
 export const VRMCanvas = memo(
@@ -31,6 +32,7 @@ export const VRMCanvas = memo(
     onHeadClick,
     effects,
     onEffectComplete,
+    onVRMLoaded,
   }: Props) => {
     return (
       <Canvas
@@ -53,6 +55,7 @@ export const VRMCanvas = memo(
             analyser={analyser}
             isSpeaking={isSpeaking}
             onHeadClick={onHeadClick}
+            onLoaded={onVRMLoaded}
           />
           {effects.map((effect) => (
             <TapEffect

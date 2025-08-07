@@ -20,10 +20,11 @@ type Props = {
   analyser: AnalyserNode | null;
   isSpeaking: boolean;
   onHeadClick: (event: ThreeEvent<MouseEvent>) => void;
+  onLoaded?: () => void;
 };
 
 export const VRMViewer = memo(
-  ({ emotion, analyser, isSpeaking, onHeadClick }: Props) => {
+  ({ emotion, analyser, isSpeaking, onHeadClick, onLoaded }: Props) => {
     const gltf = useLoader(GLTFLoader, "/avatar.vrm", (loader) => {
       loader.register((parser) => new VRMLoaderPlugin(parser));
     });
@@ -49,7 +50,10 @@ export const VRMViewer = memo(
       if (leftUpperArm) leftUpperArm.rotation.z = restingArmRad;
 
       vrm.springBoneManager?.reset();
-    }, [gltf]);
+      
+      // VRMモデルの読み込み完了を通知
+      onLoaded?.();
+    }, [gltf, onLoaded]);
 
     // --- フレームごとのアニメーション制御 ---
     useFrame((state, delta) => {

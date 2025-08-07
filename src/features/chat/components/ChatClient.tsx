@@ -15,7 +15,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { AnimatePresence } from "framer-motion";
 import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useChat } from "../hooks/useChat";
 import { ControlBarFooter } from "./controllers/ControlBarFooter";
@@ -24,6 +24,7 @@ import { UnlockScreen } from "./controllers/UnlockScreen";
 import { ChatHistoryOverlay } from "./ui/ChatHistoryOverlay";
 import { LiveMessageBubble } from "./ui/LiveMessageBubble";
 import { ThinkingIndicator } from "./ui/ThinkingIndicator";
+import { VRMLoadingScreen } from "./ui/VRMLoadingScreen";
 import { VRMCanvas } from "./vrm/VRMCanvas";
 
 type Props = {
@@ -46,6 +47,8 @@ export function ChatClient({ session }: Props) {
     Array<{ id: number; position: THREE.Vector3 }>
   >([]); // タップエフェクトのリスト
   const [isSignOutAlertOpen, setIsSignOutAlertOpen] = useState(false); // 警告ダイアログの表示状態
+  const [isVRMLoaded, setIsVRMLoaded] = useState(false); // VRMモデルが読み込まれたか
+  const [hasPlayedFirstMessage, setHasPlayedFirstMessage] = useState(false); // 初回メッセージを再生済みか
 
   // 会話終了処理が進行中であることを示すフラグ。trueの間は他の操作をブロックする。
   const [isEndingCall, setIsEndingCall] = useState(false);
@@ -78,6 +81,28 @@ export function ChatClient({ session }: Props) {
   } = useChat(session);
 
   // ----------------------------------------------------------------
+  // Effects - 副作用の処理
+  // ----------------------------------------------------------------
+
+  // VRMが読み込まれた時に初回メッセージを再生
+  useEffect(() => {
+    if (isUnlocked && isVRMLoaded && !hasPlayedFirstMessage) {
+      const firstMessage = messages[0];
+      if (firstMessage?.role === "ai" && firstMessage.audioUrl) {
+        setHasPlayedFirstMessage(true);
+        if (firstMessage.emotion) setCurrentEmotion(firstMessage.emotion);
+        setLiveMessage(firstMessage);
+        playAudio(firstMessage.audioUrl, () => {
+          setTimeout(() => {
+            setLiveMessage(null);
+            setCurrentEmotion("neutral");
+          }, 1000);
+        });
+      }
+    }
+  }, [isUnlocked, isVRMLoaded, hasPlayedFirstMessage, messages, setCurrentEmotion, setLiveMessage, playAudio]);
+
+  // ----------------------------------------------------------------
   // Event Handlers - UIコンポーネントに渡すためのイベントハンドラ
   // ----------------------------------------------------------------
 
@@ -97,20 +122,11 @@ export function ChatClient({ session }: Props) {
     setLiveMessage(null);
     setCurrentEmotion("neutral");
     setIsEndingCall(false); // 念のため終了状態もリセット
+    setIsVRMLoaded(false); // VRM読み込み状態をリセット
+    setHasPlayedFirstMessage(false); // 初回メッセージ再生フラグをリセット
 
     initializeAudio().then(() => {
       setIsUnlocked(true);
-      const firstMessage = messages[0];
-      if (firstMessage?.role === "ai" && firstMessage.audioUrl) {
-        if (firstMessage.emotion) setCurrentEmotion(firstMessage.emotion);
-        setLiveMessage(firstMessage);
-        playAudio(firstMessage.audioUrl, () => {
-          setTimeout(() => {
-            setLiveMessage(null);
-            setCurrentEmotion("neutral");
-          }, 1000);
-        });
-      }
     });
   };
 
@@ -202,6 +218,11 @@ export function ChatClient({ session }: Props) {
 
       {isUnlocked && (
         <div className="w-full h-full flex flex-col z-10">
+          {/* VRMが読み込まれるまでローディング画面を表示 */}
+          <AnimatePresence>
+            {!isVRMLoaded && <VRMLoadingScreen />}
+          </AnimatePresence>
+          
           <div className="flex-1 w-full relative min-h-0">
             <VRMCanvas
               isLoading={isLoading}
@@ -211,16 +232,17 @@ export function ChatClient({ session }: Props) {
               onHeadClick={handleHeadClick}
               effects={effects}
               onEffectComplete={handleEffectComplete}
+              onVRMLoaded={() => setIsVRMLoaded(true)}
             />
             <AnimatePresence>
-              {liveMessage && <LiveMessageBubble message={liveMessage} />}
-              {isLoading && <ThinkingIndicator />}
+              {liveMessage && isVRMLoaded && <LiveMessageBubble message={liveMessage} />}
+              {isLoading && isVRMLoaded && <ThinkingIndicator />}
             </AnimatePresence>
           </div>
 
           <ControlBarFooter
             onSendMessage={handleSendMessage}
-            isLoading={isLoading || isEndingCall} // 思考中と終了処理中の両方でUIを無効化
+            isLoading={isLoading || isEndingCall || !isVRMLoaded} // VRM未読み込み時もUIを無効化
             onHistoryClick={() => setIsHistoryOpen(true)}
             onEndCallClick={handleEndCall}
             onSettingsClick={() => setIsSettingsOpen(true)}
